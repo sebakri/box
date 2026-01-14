@@ -1,4 +1,4 @@
-# PT - Project Tool Configuration
+# PT - Project Tools
 
 [![Deploy Documentation](https://github.com/sebakri/etc/actions/workflows/docs.yml/badge.svg)](https://sebakri.github.io/etc/)
 [![Release](https://github.com/sebakri/etc/actions/workflows/release.yml/badge.svg)](https://github.com/sebakri/etc/releases)
@@ -17,6 +17,12 @@ Full documentation is available at [https://sebakri.github.io/etc/](https://seba
       - name: task
         type: go
         source: github.com/go-task/task/v3/cmd/task@latest
+      - name: jj
+        type: cargo
+        source: jj-cli
+        args:
+          - --strategies
+          - crate-meta-data
     env:
       APP_DEBUG: "true"
     ```

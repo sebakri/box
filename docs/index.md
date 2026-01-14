@@ -1,4 +1,4 @@
-# PT - Project Tool Configuration
+# PT - Project Tools
 
 PT is a lightweight, platform-independent tools manager for your projects. It allows you to define and install project-specific tools locally without requiring root permissions, keeping your global environment clean and your development setup reproducible.
 
@@ -29,6 +29,12 @@ tools:
   - name: ruff
     type: uv
     source: ruff
+  - name: jj
+    type: cargo
+    source: jj-cli
+    args:
+      - --strategies
+      - crate-meta-data
 env:
   DEBUG: "true"
   API_URL: "http://localhost:8080"
