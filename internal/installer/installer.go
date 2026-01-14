@@ -47,9 +47,13 @@ func (m *Manager) Install(tool config.Tool) error {
 }
 
 func (m *Manager) installGo(tool config.Tool, binDir string) error {
-	fmt.Printf("Installing %s (go)...\n", tool.Source)
+	source := tool.Source
+	if tool.Version != "" {
+		source = fmt.Sprintf("%s@%s", tool.Source, tool.Version)
+	}
+	fmt.Printf("Installing %s (go)...\n", source)
 
-	cmd := exec.Command("go", "install", tool.Source)
+	cmd := exec.Command("go", "install", source)
 
 	env := os.Environ()
 	env = append(env, fmt.Sprintf("GOBIN=%s", binDir))
@@ -83,11 +87,14 @@ func (m *Manager) AllowDirenv() error {
 }
 
 func (m *Manager) installNpm(tool config.Tool, etcDir string) error {
-	fmt.Printf("Installing %s (npm)...\n", tool.Source)
+	source := tool.Source
+	if tool.Version != "" {
+		source = fmt.Sprintf("%s@%s", tool.Source, tool.Version)
+	}
+	fmt.Printf("Installing %s (npm)...\n", source)
 
 	// npm install --prefix .etc -g <package>
-	// This installs binaries to .etc/bin on Linux/macOS
-	cmd := exec.Command("npm", "install", "--prefix", etcDir, "-g", tool.Source)
+	cmd := exec.Command("npm", "install", "--prefix", etcDir, "-g", source)
 
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
@@ -96,13 +103,16 @@ func (m *Manager) installNpm(tool config.Tool, etcDir string) error {
 }
 
 func (m *Manager) installCargo(tool config.Tool, etcDir string) error {
-	fmt.Printf("Installing %s (cargo)...\n", tool.Source)
+	source := tool.Source
+	if tool.Version != "" {
+		source = fmt.Sprintf("%s@%s", tool.Source, tool.Version)
+	}
+	fmt.Printf("Installing %s (cargo)...\n", source)
 
 	// cargo binstall --root .etc <args> <package>
-	// This installs binaries to .etc/bin
 	args := []string{"binstall", "--root", etcDir, "-y"}
 	args = append(args, tool.Args...)
-	args = append(args, tool.Source)
+	args = append(args, source)
 
 	cmd := exec.Command("cargo", args...)
 
@@ -113,7 +123,11 @@ func (m *Manager) installCargo(tool config.Tool, etcDir string) error {
 }
 
 func (m *Manager) installUv(tool config.Tool, binDir string) error {
-	fmt.Printf("Installing %s (uv)...\n", tool.Source)
+	source := tool.Source
+	if tool.Version != "" {
+		source = fmt.Sprintf("%s==%s", tool.Source, tool.Version)
+	}
+	fmt.Printf("Installing %s (uv)...\n", source)
 
 	boxDir := filepath.Join(m.RootDir, ".box")
 	uvDir := filepath.Join(boxDir, "uv")
@@ -122,7 +136,7 @@ func (m *Manager) installUv(tool config.Tool, binDir string) error {
 	// UV_TOOL_BIN_DIR and UV_TOOL_DIR ensure project-local installation
 	args := []string{"tool", "install", "--force"}
 	args = append(args, tool.Args...)
-	args = append(args, tool.Source)
+	args = append(args, source)
 
 	cmd := exec.Command("uv", args...)
 
@@ -138,13 +152,16 @@ func (m *Manager) installUv(tool config.Tool, binDir string) error {
 }
 
 func (m *Manager) installGem(tool config.Tool, binDir string) error {
-	fmt.Printf("Installing %s (gem)...\n", tool.Source)
+	fmt.Printf("Installing %s %s (gem)...\n", tool.Source, tool.Version)
 
 	boxDir := filepath.Join(m.RootDir, ".box")
 	gemDir := filepath.Join(boxDir, "gems")
 
 	// gem install --install-dir .box/gems --bindir .box/bin <gem>
 	args := []string{"install", "--install-dir", gemDir, "--bindir", binDir, "--no-document"}
+	if tool.Version != "" {
+		args = append(args, "-v", tool.Version)
+	}
 	args = append(args, tool.Args...)
 	args = append(args, tool.Source)
 

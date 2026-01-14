@@ -7,9 +7,10 @@ import (
 )
 
 type Tool struct {
-	Type   string   `yaml:"type"`   // "go", "npm", "cargo", "uv", "gem"
-	Source string   `yaml:"source"` // Package path (e.g., "golang.org/x/tools/gopls@latest")
-	Args   []string `yaml:"args,omitempty"`
+	Type    string   `yaml:"type"`              // "go", "npm", "cargo", "uv", "gem"
+	Source  string   `yaml:"source"`            // Package path (e.g., "golang.org/x/tools/gopls")
+	Version string   `yaml:"version,omitempty"` // Optional version (e.g., "latest", "0.1.0")
+	Args    []string `yaml:"args,omitempty"`
 }
 
 type Config struct {

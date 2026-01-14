@@ -1,6 +1,7 @@
 tools:
   - type: go
-    source: golang.org/x/tools/gopls@latest
+    source: golang.org/x/tools/gopls
+    version: latest
   - type: npm
     source: cowsay
   - type: cargo
@@ -9,7 +10,8 @@ tools:
       - --strategies
       - crate-meta-data
   - type: go
-    source: github.com/go-task/task/v3/cmd/task@latest
+    source: github.com/go-task/task/v3/cmd/task
+    version: latest
   - type: uv
     source: mkdocs
     args:
@@ -17,3 +19,6 @@ tools:
       - mkdocs-simple-blog
   - type: uv
     source: rich-cli
+  - type: uv
+    source: black
+    version: 24.3.0

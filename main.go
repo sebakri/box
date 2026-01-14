@@ -153,14 +153,23 @@ func runEnv() {
 
 func runAdd() {
 	if len(os.Args) < 4 {
-		fmt.Println("Usage: box add <type> <source> [args...]")
-		fmt.Println("Example: box add uv ruff")
+		fmt.Println("Usage: box add <type> <source>[@version] [args...]")
+		fmt.Println("Example: box add uv ruff@0.1.0")
 		os.Exit(1)
 	}
 
 	toolType := os.Args[2]
-	source := os.Args[3]
+	fullSource := os.Args[3]
 	args := os.Args[4:]
+
+	source := fullSource
+	version := ""
+
+	if strings.Contains(fullSource, "@") {
+		parts := strings.SplitN(fullSource, "@", 2)
+		source = parts[0]
+		version = parts[1]
+	}
 
 	configFile := "box.yml"
 	cfg, err := config.Load(configFile)
@@ -181,9 +190,10 @@ func runAdd() {
 	}
 
 	newTool := config.Tool{
-		Type:   toolType,
-		Source: source,
-		Args:   args,
+		Type:    toolType,
+		Source:  source,
+		Version: version,
+		Args:    args,
 	}
 
 	cfg.Tools = append(cfg.Tools, newTool)
@@ -192,7 +202,11 @@ func runAdd() {
 		log.Fatalf("Failed to save %s: %v", configFile, err)
 	}
 
-	fmt.Printf("✅ Added %s to %s\n", source, configFile)
+	if version != "" {
+		fmt.Printf("✅ Added %s (version %s) to %s\n", source, version, configFile)
+	} else {
+		fmt.Printf("✅ Added %s to %s\n", source, configFile)
+	}
 	fmt.Printf("Run 'box install' to install it.\n")
 }
 
