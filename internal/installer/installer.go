@@ -47,7 +47,7 @@ func (m *Manager) Install(tool config.Tool) error {
 }
 
 func (m *Manager) installGo(tool config.Tool, binDir string) error {
-	fmt.Printf("Installing %s (go)...\n", tool.Name)
+	fmt.Printf("Installing %s (go)...\n", tool.Source)
 
 	cmd := exec.Command("go", "install", tool.Source)
 
@@ -83,7 +83,7 @@ func (m *Manager) AllowDirenv() error {
 }
 
 func (m *Manager) installNpm(tool config.Tool, etcDir string) error {
-	fmt.Printf("Installing %s (npm)...\n", tool.Name)
+	fmt.Printf("Installing %s (npm)...\n", tool.Source)
 
 	// npm install --prefix .etc -g <package>
 	// This installs binaries to .etc/bin on Linux/macOS
@@ -96,7 +96,7 @@ func (m *Manager) installNpm(tool config.Tool, etcDir string) error {
 }
 
 func (m *Manager) installCargo(tool config.Tool, etcDir string) error {
-	fmt.Printf("Installing %s (cargo)...\n", tool.Name)
+	fmt.Printf("Installing %s (cargo)...\n", tool.Source)
 
 	// cargo binstall --root .etc <args> <package>
 	// This installs binaries to .etc/bin
@@ -113,7 +113,7 @@ func (m *Manager) installCargo(tool config.Tool, etcDir string) error {
 }
 
 func (m *Manager) installUv(tool config.Tool, binDir string) error {
-	fmt.Printf("Installing %s (uv)...\n", tool.Name)
+	fmt.Printf("Installing %s (uv)...\n", tool.Source)
 
 	boxDir := filepath.Join(m.RootDir, ".box")
 	uvDir := filepath.Join(boxDir, "uv")
@@ -138,7 +138,7 @@ func (m *Manager) installUv(tool config.Tool, binDir string) error {
 }
 
 func (m *Manager) installGem(tool config.Tool, binDir string) error {
-	fmt.Printf("Installing %s (gem)...\n", tool.Name)
+	fmt.Printf("Installing %s (gem)...\n", tool.Source)
 
 	boxDir := filepath.Join(m.RootDir, ".box")
 	gemDir := filepath.Join(boxDir, "gems")

@@ -1,25 +1,19 @@
 tools:
-  - name: gopls
-    type: go
+  - type: go
     source: golang.org/x/tools/gopls@latest
-  - name: cowsay
-    type: npm
+  - type: npm
     source: cowsay
-  - name: jj
-    type: cargo
+  - type: cargo
     source: jj-cli
     args:
       - --strategies
       - crate-meta-data
-  - name: task
-    type: go
+  - type: go
     source: github.com/go-task/task/v3/cmd/task@latest
-  - name: mkdocs
-    type: uv
+  - type: uv
     source: mkdocs
     args:
       - --with
       - mkdocs-simple-blog
-  - name: rich-cli
-    type: uv
+  - type: uv
     source: rich-cli

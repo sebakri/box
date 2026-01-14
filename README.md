@@ -14,11 +14,9 @@ Full documentation is available at [https://sebakri.github.io/etc/](https://seba
 1.  **Configure**: Create a `box.yml` in your project root:
     ```yaml
     tools:
-      - name: task
-        type: go
+      - type: go
         source: github.com/go-task/task/v3/cmd/task@latest
-      - name: jj
-        type: cargo
+      - type: cargo
         source: jj-cli
         args:
           - --strategies
@@ -45,7 +43,7 @@ Download the binary for your platform from the [latest releases](https://github.
 ## Commands
 
 - `box install`: Installs tools defined in `box.yml`.
-- `box add <name> <type> <source> [args...]`: Adds a new tool to `box.yml`.
+- `box add <type> <source> [args...]`: Adds a new tool to `box.yml`.
 - `box run <command>`: Executes a binary from the local `.box/bin` directory.
 - `box env`: Displays the merged list of environment variables.
 - `box generate direnv`: Generates a `.envrc` file for `direnv` integration.

@@ -152,16 +152,15 @@ func runEnv() {
 }
 
 func runAdd() {
-	if len(os.Args) < 5 {
-		fmt.Println("Usage: box add <name> <type> <source> [args...]")
-		fmt.Println("Example: box add ruff uv ruff")
+	if len(os.Args) < 4 {
+		fmt.Println("Usage: box add <type> <source> [args...]")
+		fmt.Println("Example: box add uv ruff")
 		os.Exit(1)
 	}
 
-	name := os.Args[2]
-	toolType := os.Args[3]
-	source := os.Args[4]
-	args := os.Args[5:]
+	toolType := os.Args[2]
+	source := os.Args[3]
+	args := os.Args[4:]
 
 	configFile := "box.yml"
 	cfg, err := config.Load(configFile)
@@ -173,16 +172,15 @@ func runAdd() {
 		}
 	}
 
-	// Check if tool already exists
+	// Check if tool already exists by source
 	for _, tool := range cfg.Tools {
-		if tool.Name == name {
-			fmt.Printf("⚠️  Tool %s already exists in %s\n", name, configFile)
+		if tool.Source == source {
+			fmt.Printf("⚠️  Tool with source %s already exists in %s\n", source, configFile)
 			os.Exit(0)
 		}
 	}
 
 	newTool := config.Tool{
-		Name:   name,
 		Type:   toolType,
 		Source: source,
 		Args:   args,
@@ -194,7 +192,7 @@ func runAdd() {
 		log.Fatalf("Failed to save %s: %v", configFile, err)
 	}
 
-	fmt.Printf("✅ Added %s to %s\n", name, configFile)
+	fmt.Printf("✅ Added %s to %s\n", source, configFile)
 	fmt.Printf("Run 'box install' to install it.\n")
 }
 
@@ -254,10 +252,10 @@ func runInstall() {
 	fmt.Println("Starting tool installation...")
 	for _, tool := range cfg.Tools {
 		if err := mgr.Install(tool); err != nil {
-			log.Printf("❌ Failed to install %s: %v", tool.Name, err)
+			log.Printf("❌ Failed to install %s: %v", tool.Source, err)
 			os.Exit(1)
 		}
-		fmt.Printf("✅ Successfully installed %s\n", tool.Name)
+		fmt.Printf("✅ Successfully installed %s\n", tool.Source)
 	}
 
 	fmt.Println("All tools installed successfully.")
