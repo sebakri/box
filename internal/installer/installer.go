@@ -130,6 +130,23 @@ func (m *Manager) updateManifest(name string, files []string) error {
 	return gob.NewEncoder(file).Encode(manifest)
 }
 
+func (m *Manager) LoadManifest() (*Manifest, error) {
+	manifestPath := filepath.Join(m.RootDir, ".box", "manifest.bin")
+	manifest := Manifest{Tools: make(map[string]ToolManifest)}
+
+	file, err := os.Open(manifestPath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return &manifest, nil
+		}
+		return nil, err
+	}
+	defer file.Close()
+
+	err = gob.NewDecoder(file).Decode(&manifest)
+	return &manifest, err
+}
+
 func (m *Manager) Uninstall(name string) error {
 	manifestPath := filepath.Join(m.RootDir, ".box", "manifest.bin")
 	manifest := Manifest{Tools: make(map[string]ToolManifest)}

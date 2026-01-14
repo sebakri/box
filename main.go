@@ -31,6 +31,8 @@ func main() {
 		runAdd()
 	case "remove":
 		runRemove()
+	case "list":
+		runList()
 	case "generate":
 		runGenerate()
 	case "doctor":
@@ -274,6 +276,41 @@ func runRemove() {
 	fmt.Printf("✅ Removed %s from %s\n", name, configFile)
 }
 
+func runList() {
+	configFile := "box.yml"
+	cfg, err := config.Load(configFile)
+	if err != nil {
+		log.Fatalf("Failed to load %s: %v", configFile, err)
+	}
+
+	cwd, err := os.Getwd()
+	if err != nil {
+		log.Fatalf("Failed to get current working directory: %v", err)
+	}
+
+	mgr := installer.New(cwd, cfg.Env)
+	manifest, err := mgr.LoadManifest()
+	if err != nil {
+		log.Fatalf("Failed to load manifest: %v", err)
+	}
+
+	fmt.Println("Installed tools:")
+	for _, tool := range cfg.Tools {
+		fmt.Printf("- %s (%s)\n", tool.Name, tool.Type)
+		if info, ok := manifest.Tools[tool.Name]; ok {
+			binaries := []string{}
+			for _, file := range info.Files {
+				if strings.HasPrefix(file, ".box/bin/") {
+					binaries = append(binaries, filepath.Base(file))
+				}
+			}
+			if len(binaries) > 0 {
+				fmt.Printf("  binaries: %s\n", strings.Join(binaries, ", "))
+			}
+		}
+	}
+}
+
 func runGenerate() {
 	if len(os.Args) < 3 {
 		fmt.Println("Usage: box generate <type>")
@@ -349,6 +386,7 @@ func usage() {
 	fmt.Println("  install   Install tools defined in box.yml")
 	fmt.Println("  add       Add a new tool to box.yml")
 	fmt.Println("  remove    Remove a tool from box.yml")
+	fmt.Println("  list      List installed tools and their binaries")
 	fmt.Println("  run       Execute a binary from .box/bin")
 	fmt.Println("  env       Display merged environment variables")
 	fmt.Println("  generate  Generate configuration files (e.g., direnv)")

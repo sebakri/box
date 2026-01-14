@@ -33,3 +33,6 @@ tools:
     - name: golangci-lint-script
       type: script
       source: curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $BOX_BIN_DIR v1.60.1
+    - name: cowsay
+      type: npm
+      source: cowsay
