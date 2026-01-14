@@ -1,6 +1,7 @@
 package installer
 
 import (
+	"encoding/gob"
 	"fmt"
 	"os"
 	"os/exec"
@@ -8,7 +9,6 @@ import (
 	"sort"
 
 	"box/internal/config"
-	"gopkg.in/yaml.v3"
 )
 
 type Manager struct {
@@ -17,11 +17,11 @@ type Manager struct {
 }
 
 type ToolManifest struct {
-	Files []string `yaml:"files"`
+	Files []string
 }
 
 type Manifest struct {
-	Tools map[string]ToolManifest `yaml:"tools"`
+	Tools map[string]ToolManifest
 }
 
 func New(rootDir string, env map[string]string) *Manager {
@@ -41,7 +41,8 @@ func (m *Manager) Install(tool config.Tool) error {
 	}
 
 	// Capture state before install
-	before, err := m.captureState()
+
+before, err := m.captureState()
 	if err != nil {
 		return fmt.Errorf("failed to capture state before install: %w", err)
 	}
@@ -97,7 +98,7 @@ func (m *Manager) captureState() (map[string]bool, error) {
 		if err != nil {
 			return err
 		}
-		// We track the relative path from BoxDir
+		// We track the relative path from RootDir
 		rel, err := filepath.Rel(m.RootDir, path)
 		if err != nil {
 			return err
@@ -110,43 +111,49 @@ func (m *Manager) captureState() (map[string]bool, error) {
 }
 
 func (m *Manager) updateManifest(name string, files []string) error {
-	manifestPath := filepath.Join(m.RootDir, ".box", "installed.yml")
+	manifestPath := filepath.Join(m.RootDir, ".box", "manifest.bin")
 	manifest := Manifest{Tools: make(map[string]ToolManifest)}
 
-	if data, err := os.ReadFile(manifestPath); err == nil {
-		yaml.Unmarshal(data, &manifest)
+	if file, err := os.Open(manifestPath); err == nil {
+		gob.NewDecoder(file).Decode(&manifest)
+		file.Close()
 	}
 
 	manifest.Tools[name] = ToolManifest{Files: files}
 
-	data, err := yaml.Marshal(manifest)
+	file, err := os.Create(manifestPath)
 	if err != nil {
 		return err
 	}
+	defer file.Close()
 
-	return os.WriteFile(manifestPath, data, 0644)
+	return gob.NewEncoder(file).Encode(manifest)
 }
 
 func (m *Manager) Uninstall(name string) error {
-	manifestPath := filepath.Join(m.RootDir, ".box", "installed.yml")
+	manifestPath := filepath.Join(m.RootDir, ".box", "manifest.bin")
 	manifest := Manifest{Tools: make(map[string]ToolManifest)}
 
-	data, err := os.ReadFile(manifestPath)
+	file, err := os.Open(manifestPath)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return nil // Nothing to uninstall from manifest
+			// Fallback for old installations
+			return m.uninstallBestEffort(name)
 		}
 		return err
 	}
-	yaml.Unmarshal(data, &manifest)
+	err = gob.NewDecoder(file).Decode(&manifest)
+	file.Close()
+	if err != nil {
+		return err
+	}
 
 	toolInfo, ok := manifest.Tools[name]
 	if !ok {
-		// Fallback to best effort if not in manifest (old tools)
 		return m.uninstallBestEffort(name)
 	}
 
-	// Remove files in reverse order (to remove files before their parent directories)
+	// Remove files in reverse order
 	sort.Sort(sort.Reverse(sort.StringSlice(toolInfo.Files)))
 
 	for _, file := range toolInfo.Files {
@@ -157,7 +164,6 @@ func (m *Manager) Uninstall(name string) error {
 		}
 
 		if info.IsDir() {
-			// Only remove if empty
 			entries, _ := os.ReadDir(fullPath)
 			if len(entries) == 0 {
 				fmt.Printf("Removing empty directory %s...\n", file)
@@ -170,8 +176,13 @@ func (m *Manager) Uninstall(name string) error {
 	}
 
 	delete(manifest.Tools, name)
-	newData, _ := yaml.Marshal(manifest)
-	return os.WriteFile(manifestPath, newData, 0644)
+	
+	outFile, err := os.Create(manifestPath)
+	if err != nil {
+		return err
+	}
+	defer outFile.Close()
+	return gob.NewEncoder(outFile).Encode(manifest)
 }
 
 func (m *Manager) uninstallBestEffort(name string) error {
