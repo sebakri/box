@@ -1,0 +1,105 @@
+package installer
+
+import (
+	"fmt"
+	"os"
+	"os/exec"
+	"path/filepath"
+
+	"etc/internal/config"
+)
+
+type Manager struct {
+	RootDir string
+}
+
+func New(rootDir string) *Manager {
+	return &Manager{RootDir: rootDir}
+}
+
+func (m *Manager) Install(tool config.Tool) error {
+	etcDir := filepath.Join(m.RootDir, ".etc")
+	binDir := filepath.Join(etcDir, "bin")
+
+	// Ensure directories exist
+	if err := os.MkdirAll(binDir, 0755); err != nil {
+		return fmt.Errorf("failed to create bin dir: %w", err)
+	}
+
+	switch tool.Type {
+	case "go":
+		return m.installGo(tool, binDir)
+	case "npm":
+		return m.installNpm(tool, etcDir)
+	case "cargo":
+		return m.installCargo(tool, etcDir)
+	default:
+		return fmt.Errorf("unsupported tool type: %s", tool.Type)
+	}
+}
+
+func (m *Manager) installGo(tool config.Tool, binDir string) error {
+	fmt.Printf("Installing %s (go)...\n", tool.Name)
+
+	cmd := exec.Command("go", "install", tool.Source)
+
+	env := os.Environ()
+	env = append(env, fmt.Sprintf("GOBIN=%s", binDir))
+	cmd.Env = env
+
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+
+	return cmd.Run()
+}
+
+func (m *Manager) EnsureEnvrc() error {
+	envrcPath := filepath.Join(m.RootDir, ".envrc")
+	content := "PATH_add .etc/bin\n"
+
+	if _, err := os.Stat(envrcPath); err == nil {
+		return nil
+	}
+
+	fmt.Println("Creating .envrc...")
+	return os.WriteFile(envrcPath, []byte(content), 0644)
+}
+
+func (m *Manager) AllowDirenv() error {
+	fmt.Println("Running direnv allow...")
+	cmd := exec.Command("direnv", "allow")
+	cmd.Dir = m.RootDir
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	return cmd.Run()
+}
+
+func (m *Manager) installNpm(tool config.Tool, etcDir string) error {
+	fmt.Printf("Installing %s (npm)...\n", tool.Name)
+
+	// npm install --prefix .etc -g <package>
+	// This installs binaries to .etc/bin on Linux/macOS
+	cmd := exec.Command("npm", "install", "--prefix", etcDir, "-g", tool.Source)
+
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+
+	return cmd.Run()
+}
+
+func (m *Manager) installCargo(tool config.Tool, etcDir string) error {
+	fmt.Printf("Installing %s (cargo)...\n", tool.Name)
+
+	// cargo binstall --root .etc <args> <package>
+	// This installs binaries to .etc/bin
+	args := []string{"binstall", "--root", etcDir, "-y"}
+	args = append(args, tool.Args...)
+	args = append(args, tool.Source)
+
+	cmd := exec.Command("cargo", args...)
+
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+
+	return cmd.Run()
+}
