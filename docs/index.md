@@ -66,6 +66,7 @@ task --version
 
 - `box install`: Installs tools defined in `box.yml` and sets up `.envrc`.
 - `box run <command>`: Executes a binary from the local `.box/bin` directory.
+- `box env`: Displays the merged list of environment variables.
 - `box doctor`: Checks if the required host runtimes (Go, npm, Cargo, uv) are installed.
 - `box help`: Displays usage information.
 
