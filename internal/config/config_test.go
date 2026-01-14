@@ -9,9 +9,11 @@ func TestLoad(t *testing.T) {
 	// Create a temporary box.yml
 	content := []byte(`
 tools:
-  - type: go
+  - name: test-tool
+    type: go
     source: example.com/tool
-  - type: uv
+  - name: ruff
+    type: uv
     source: ruff
 env:
   KEY: value
@@ -41,6 +43,10 @@ env:
 
 	if cfg.Env["KEY"] != "value" {
 		t.Errorf("Expected Env['KEY'] to be 'value', got '%s'", cfg.Env["KEY"])
+	}
+
+	if cfg.Tools[0].Name != "test-tool" {
+		t.Errorf("Expected name 'test-tool', got '%s'", cfg.Tools[0].Name)
 	}
 
 	if cfg.Tools[0].Source != "example.com/tool" {

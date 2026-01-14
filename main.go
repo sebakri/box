@@ -29,6 +29,8 @@ func main() {
 		runEnv()
 	case "add":
 		runAdd()
+	case "remove":
+		runRemove()
 	case "generate":
 		runGenerate()
 	case "doctor":
@@ -170,15 +172,16 @@ func runEnv() {
 }
 
 func runAdd() {
-	if len(os.Args) < 4 {
-		fmt.Println("Usage: box add <type> <source>[@version] [args...]")
-		fmt.Println("Example: box add uv ruff@0.1.0")
+	if len(os.Args) < 5 {
+		fmt.Println("Usage: box add <name> <type> <source>[@version] [args...]")
+		fmt.Println("Example: box add ruff uv ruff@0.1.0")
 		os.Exit(1)
 	}
 
-	toolType := os.Args[2]
-	fullSource := os.Args[3]
-	args := os.Args[4:]
+	name := os.Args[2]
+	toolType := os.Args[3]
+	fullSource := os.Args[4]
+	args := os.Args[5:]
 
 	source := fullSource
 	version := ""
@@ -199,15 +202,16 @@ func runAdd() {
 		}
 	}
 
-	// Check if tool already exists by source
+	// Check if tool already exists by name
 	for _, tool := range cfg.Tools {
-		if tool.Source == source {
-			fmt.Printf("⚠️  Tool with source %s already exists in %s\n", source, configFile)
+		if tool.Name == name {
+			fmt.Printf("⚠️  Tool %s already exists in %s\n", name, configFile)
 			os.Exit(0)
 		}
 	}
 
 	newTool := config.Tool{
+		Name:    name,
 		Type:    toolType,
 		Source:  source,
 		Version: version,
@@ -220,12 +224,54 @@ func runAdd() {
 		log.Fatalf("Failed to save %s: %v", configFile, err)
 	}
 
-	if version != "" {
-		fmt.Printf("✅ Added %s (version %s) to %s\n", source, version, configFile)
-	} else {
-		fmt.Printf("✅ Added %s to %s\n", source, configFile)
-	}
+	fmt.Printf("✅ Added %s to %s\n", name, configFile)
 	fmt.Printf("Run 'box install' to install it.\n")
+}
+
+func runRemove() {
+	if len(os.Args) < 3 {
+		fmt.Println("Usage: box remove <name>")
+		os.Exit(1)
+	}
+
+	name := os.Args[2]
+	configFile := "box.yml"
+	cfg, err := config.Load(configFile)
+	if err != nil {
+		log.Fatalf("Failed to load %s: %v", configFile, err)
+	}
+
+	found := false
+	newTools := []config.Tool{}
+	for _, tool := range cfg.Tools {
+		if tool.Name == name {
+			found = true
+			continue
+		}
+		newTools = append(newTools, tool)
+	}
+
+	if !found {
+		fmt.Printf("⚠️  Tool %s not found in %s\n", name, configFile)
+		os.Exit(0)
+	}
+
+	cfg.Tools = newTools
+	if err := cfg.Save(configFile); err != nil {
+		log.Fatalf("Failed to save %s: %v", configFile, err)
+	}
+
+	cwd, err := os.Getwd()
+	if err != nil {
+		log.Fatalf("Failed to get current working directory: %v", err)
+	}
+
+	mgr := installer.New(cwd, cfg.Env)
+	if err := mgr.Uninstall(name); err != nil {
+		fmt.Printf("⚠️  Failed to uninstall files for %s: %v\n", name, err)
+	}
+
+	fmt.Printf("✅ Removed %s from %s\n", name, configFile)
 }
 
 func runGenerate() {
@@ -284,10 +330,10 @@ func runInstall() {
 	fmt.Println("Starting tool installation...")
 	for _, tool := range cfg.Tools {
 		if err := mgr.Install(tool); err != nil {
-			log.Printf("❌ Failed to install %s: %v", tool.Source, err)
+			log.Printf("❌ Failed to install %s: %v", tool.Name, err)
 			os.Exit(1)
 		}
-		fmt.Printf("✅ Successfully installed %s\n", tool.Source)
+		fmt.Printf("✅ Successfully installed %s\n", tool.Name)
 	}
 
 	fmt.Println("All tools installed successfully.")
@@ -302,6 +348,7 @@ func usage() {
 	fmt.Println("Commands:")
 	fmt.Println("  install   Install tools defined in box.yml")
 	fmt.Println("  add       Add a new tool to box.yml")
+	fmt.Println("  remove    Remove a tool from box.yml")
 	fmt.Println("  run       Execute a binary from .box/bin")
 	fmt.Println("  env       Display merged environment variables")
 	fmt.Println("  generate  Generate configuration files (e.g., direnv)")

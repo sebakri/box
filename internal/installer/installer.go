@@ -48,12 +48,40 @@ func (m *Manager) Install(tool config.Tool) error {
 	}
 }
 
+func (m *Manager) Uninstall(name string) error {
+	boxDir := filepath.Join(m.RootDir, ".box")
+	binDir := filepath.Join(boxDir, "bin")
+
+	// 1. Remove binary from .box/bin (best effort search)
+	// For uv tools, it's often a symlink or binary with the tool name
+	binaryPath := filepath.Join(binDir, name)
+	if _, err := os.Stat(binaryPath); err == nil {
+		fmt.Printf("Removing binary %s...\n", binaryPath)
+		os.Remove(binaryPath)
+	}
+
+	// 2. Remove tool-specific data directories
+	// UV: .box/uv/<name>
+	uvToolDir := filepath.Join(boxDir, "uv", name)
+	if _, err := os.Stat(uvToolDir); err == nil {
+		fmt.Printf("Removing data directory %s...\n", uvToolDir)
+		os.RemoveAll(uvToolDir)
+	}
+
+	// Cargo: .box/bin/<name> (already covered)
+	
+	// Gems: .box/gems/bin/<name> (if bindir was there) or gems data
+	// Currently we just try to remove the binary from binDir.
+	
+	return nil
+}
+
 func (m *Manager) installGo(tool config.Tool, binDir string) error {
 	source := tool.Source
 	if tool.Version != "" {
 		source = fmt.Sprintf("%s@%s", tool.Source, tool.Version)
 	}
-	fmt.Printf("Installing %s (go)...\n", source)
+	fmt.Printf("Installing %s (go)...\n", tool.Name)
 
 	cmd := exec.Command("go", "install", source)
 
@@ -97,7 +125,7 @@ func (m *Manager) installNpm(tool config.Tool, etcDir string) error {
 	if tool.Version != "" {
 		source = fmt.Sprintf("%s@%s", tool.Source, tool.Version)
 	}
-	fmt.Printf("Installing %s (npm)...\n", source)
+	fmt.Printf("Installing %s (npm)...\n", tool.Name)
 
 	// npm install --prefix .etc -g <package>
 	cmd := exec.Command("npm", "install", "--prefix", etcDir, "-g", source)
@@ -113,7 +141,7 @@ func (m *Manager) installCargo(tool config.Tool, etcDir string) error {
 	if tool.Version != "" {
 		source = fmt.Sprintf("%s@%s", tool.Source, tool.Version)
 	}
-	fmt.Printf("Installing %s (cargo)...\n", source)
+	fmt.Printf("Installing %s (cargo)...\n", tool.Name)
 
 	// cargo binstall --root .etc <args> <package>
 	args := []string{"binstall", "--root", etcDir, "-y"}
@@ -133,7 +161,7 @@ func (m *Manager) installUv(tool config.Tool, binDir string) error {
 	if tool.Version != "" {
 		source = fmt.Sprintf("%s==%s", tool.Source, tool.Version)
 	}
-	fmt.Printf("Installing %s (uv)...\n", source)
+	fmt.Printf("Installing %s (uv)...\n", tool.Name)
 
 	boxDir := filepath.Join(m.RootDir, ".box")
 	uvDir := filepath.Join(boxDir, "uv")
@@ -158,7 +186,7 @@ func (m *Manager) installUv(tool config.Tool, binDir string) error {
 }
 
 func (m *Manager) installGem(tool config.Tool, binDir string) error {
-	fmt.Printf("Installing %s %s (gem)...\n", tool.Source, tool.Version)
+	fmt.Printf("Installing %s %s (gem)...\n", tool.Name, tool.Version)
 
 	boxDir := filepath.Join(m.RootDir, ".box")
 	gemDir := filepath.Join(boxDir, "gems")

@@ -7,6 +7,7 @@ import (
 )
 
 type Tool struct {
+	Name    string   `yaml:"name"`
 	Type    string   `yaml:"type"`              // "go", "npm", "cargo", "uv", "gem", "script"
 	Source  string   `yaml:"source"`            // Package path or script command
 	Version string   `yaml:"version,omitempty"` // Optional version (e.g., "latest", "0.1.0")
