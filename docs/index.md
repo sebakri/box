@@ -1,12 +1,12 @@
-# PT - Project Tools
+# Box - Project Tool Configuration
 
-PT is a lightweight, platform-independent tools manager for your projects. It allows you to define and install project-specific tools locally without requiring root permissions, keeping your global environment clean and your development setup reproducible.
+Box is a lightweight, platform-independent tools manager for your projects. It allows you to define and install project-specific tools locally without requiring root permissions, keeping your global environment clean and your development setup reproducible.
 
 ## Key Features
 
-- **Project-Local Tools**: Tools are installed in `.pt/bin`, isolated from your system.
+- **Project-Local Tools**: Tools are installed in `.box/bin`, isolated from your system.
 - **Environment Variables**: Define project-specific variables that are automatically exported.
-- **Declarative Setup**: Define all required tools and env vars in a simple `pt.yml` file.
+- **Declarative Setup**: Define all required tools and env vars in a simple `box.yml` file.
 - **Multi-Runtime Support**: Works seamlessly with Go, npm, Cargo, and uv.
 - **direnv Integration**: Automatically manages your `PATH` and `ENV` using `.envrc`.
 - **Cross-Platform**: Built in Go, supporting Linux, macOS, and Windows.
@@ -19,7 +19,7 @@ Download the latest binary for your platform from the [Releases](https://github.
 
 ### 2. Configure Your Project
 
-Create a `pt.yml` in your project root:
+Create a `box.yml` in your project root:
 
 ```yaml
 tools:
@@ -45,7 +45,7 @@ env:
 Run the install command to fetch and install all defined tools:
 
 ```bash
-pt install
+box install
 ```
 
 ### 4. Use Your Tools
@@ -53,7 +53,7 @@ pt install
 You can run tools directly using the `run` command:
 
 ```bash
-pt run task --version
+box run task --version
 ```
 
 Or, if you use `direnv`, simply `allow` the `.envrc` and use them directly:
@@ -64,10 +64,10 @@ task --version
 
 ## Commands
 
-- `pt install`: Installs tools defined in `pt.yml` and sets up `.envrc`.
-- `pt run <command>`: Executes a binary from the local `.pt/bin` directory.
-- `pt doctor`: Checks if the required host runtimes (Go, npm, Cargo, uv) are installed.
-- `pt help`: Displays usage information.
+- `box install`: Installs tools defined in `box.yml` and sets up `.envrc`.
+- `box run <command>`: Executes a binary from the local `.box/bin` directory.
+- `box doctor`: Checks if the required host runtimes (Go, npm, Cargo, uv) are installed.
+- `box help`: Displays usage information.
 
 ## Contributing
 

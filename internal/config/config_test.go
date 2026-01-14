@@ -6,7 +6,7 @@ import (
 )
 
 func TestLoad(t *testing.T) {
-	// Create a temporary pt.yml
+	// Create a temporary box.yml
 	content := []byte(`
 tools:
   - name: test-tool
@@ -18,7 +18,7 @@ tools:
 env:
   KEY: value
 `)
-	tmpfile, err := os.CreateTemp("", "pt-test-*.yml")
+	tmpfile, err := os.CreateTemp("", "box-test-*.yml")
 	if err != nil {
 		t.Fatal(err)
 	}

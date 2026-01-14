@@ -6,7 +6,7 @@ import (
 )
 
 func Run() {
-	fmt.Println("Checking pt host environment tools...")
+	fmt.Println("Checking box host environment tools...")
 
 	tools := []string{"go", "npm", "cargo", "cargo-binstall", "uv", "direnv"}
 	allFound := true

@@ -2,9 +2,9 @@ version: '3'
 
 tasks:
   build:
-    desc: Build the pt binary
+    desc: Build the box binary
     cmds:
-      - go build -o pt main.go
+      - go build -o box main.go
 
   test:
     desc: Run tests
@@ -19,4 +19,4 @@ tasks:
   serve-docs:
     desc: Serve documentation
     cmds:
-      - ./pt run mkdocs serve
+      - ./box run mkdocs serve
