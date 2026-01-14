@@ -45,6 +45,7 @@ Download the binary for your platform from the [latest releases](https://github.
 ## Commands
 
 - `box install`: Installs tools defined in `box.yml`.
+- `box add <name> <type> <source> [args...]`: Adds a new tool to `box.yml`.
 - `box run <command>`: Executes a binary from the local `.box/bin` directory.
 - `box env`: Displays the merged list of environment variables.
 - `box generate direnv`: Generates a `.envrc` file for `direnv` integration.

@@ -20,3 +20,6 @@ tools:
     args:
       - --with
       - mkdocs-simple-blog
+  - name: rich-cli
+    type: uv
+    source: rich-cli

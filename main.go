@@ -27,6 +27,8 @@ func main() {
 		runExecute()
 	case "env":
 		runEnv()
+	case "add":
+		runAdd()
 	case "generate":
 		runGenerate()
 	case "doctor":
@@ -149,6 +151,53 @@ func runEnv() {
 	}
 }
 
+func runAdd() {
+	if len(os.Args) < 5 {
+		fmt.Println("Usage: box add <name> <type> <source> [args...]")
+		fmt.Println("Example: box add ruff uv ruff")
+		os.Exit(1)
+	}
+
+	name := os.Args[2]
+	toolType := os.Args[3]
+	source := os.Args[4]
+	args := os.Args[5:]
+
+	configFile := "box.yml"
+	cfg, err := config.Load(configFile)
+	if err != nil {
+		if os.IsNotExist(err) {
+			cfg = &config.Config{}
+		} else {
+			log.Fatalf("Failed to load %s: %v", configFile, err)
+		}
+	}
+
+	// Check if tool already exists
+	for _, tool := range cfg.Tools {
+		if tool.Name == name {
+			fmt.Printf("⚠️  Tool %s already exists in %s\n", name, configFile)
+			os.Exit(0)
+		}
+	}
+
+	newTool := config.Tool{
+		Name:   name,
+		Type:   toolType,
+		Source: source,
+		Args:   args,
+	}
+
+	cfg.Tools = append(cfg.Tools, newTool)
+
+	if err := cfg.Save(configFile); err != nil {
+		log.Fatalf("Failed to save %s: %v", configFile, err)
+	}
+
+	fmt.Printf("✅ Added %s to %s\n", name, configFile)
+	fmt.Printf("Run 'box install' to install it.\n")
+}
+
 func runGenerate() {
 	if len(os.Args) < 3 {
 		fmt.Println("Usage: box generate <type>")
@@ -222,9 +271,10 @@ func usage() {
 	fmt.Println()
 	fmt.Println("Commands:")
 	fmt.Println("  install   Install tools defined in box.yml")
+	fmt.Println("  add       Add a new tool to box.yml")
 	fmt.Println("  run       Execute a binary from .box/bin")
 	fmt.Println("  env       Display merged environment variables")
 	fmt.Println("  generate  Generate configuration files (e.g., direnv)")
-	fmt.Println("  doctor    Check if host tools (go, npm, cargo, uv) are installed")
+	fmt.Println("  doctor    Check if host tools (go, npm, cargo, uv, gem) are installed")
 	fmt.Println("  help      Show this help message")
 }
