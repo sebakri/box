@@ -11,16 +11,25 @@ Full documentation is available at [https://sebakri.github.io/etc/](https://seba
 
 ## Quick Start
 
-1.  **Configure**: Create an `etc.yml` in your project root.
+1.  **Configure**: Create an `etc.yml` in your project root:
+    ```yaml
+    tools:
+      - name: task
+        type: go
+        source: github.com/go-task/task/v3/cmd/task@latest
+    env:
+      APP_DEBUG: "true"
+    ```
 2.  **Install**: Run `etc install`.
 3.  **Run**: Run `etc run <tool>` or use `direnv`.
 
 ## Features
 
 - **Project-Local Tools**: Installs tools into a local `.etc/bin` directory.
-- **No Root Required**: Leverages user-space package managers (Go, npm, Cargo).
+- **Environment Variables**: Define project-specific environment variables in `etc.yml`.
+- **No Root Required**: Leverages user-space package managers (Go, npm, Cargo, uv).
 - **Declarative Configuration**: Defined in `etc.yml`.
-- **Automatic PATH**: Integrated with `direnv`.
+- **Automatic PATH & Env**: Integrated with `direnv` via `.envrc`.
 
 ## Installation
 

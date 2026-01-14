@@ -5,9 +5,10 @@ ETC is a lightweight, platform-independent tools manager for your projects. It a
 ## Key Features
 
 - **Project-Local Tools**: Tools are installed in `.etc/bin`, isolated from your system.
-- **Declarative Setup**: Define all required tools in a simple `etc.yml` file.
-- **Multi-Runtime Support**: Works seamlessly with Go, npm, and Cargo.
-- **direnv Integration**: Automatically manages your `PATH` using `.envrc`.
+- **Environment Variables**: Define project-specific variables that are automatically exported.
+- **Declarative Setup**: Define all required tools and env vars in a simple `etc.yml` file.
+- **Multi-Runtime Support**: Works seamlessly with Go, npm, Cargo, and uv.
+- **direnv Integration**: Automatically manages your `PATH` and `ENV` using `.envrc`.
 - **Cross-Platform**: Built in Go, supporting Linux, macOS, and Windows.
 
 ## Quick Start
@@ -25,9 +26,12 @@ tools:
   - name: task
     type: go
     source: github.com/go-task/task/v3/cmd/task@latest
-  - name: prettier
-    type: npm
-    source: prettier
+  - name: ruff
+    type: uv
+    source: ruff
+env:
+  DEBUG: "true"
+  API_URL: "http://localhost:8080"
 ```
 
 ### 3. Install Tools
