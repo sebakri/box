@@ -1,9 +1,9 @@
-# ETC - Ephemeral Tool Configuration
+# PT - Project Tool Configuration
 
 [![Deploy Documentation](https://github.com/sebakri/etc/actions/workflows/docs.yml/badge.svg)](https://sebakri.github.io/etc/)
 [![Release](https://github.com/sebakri/etc/actions/workflows/release.yml/badge.svg)](https://github.com/sebakri/etc/releases)
 
-ETC is a platform-independent tools manager written in Go. It allows project-specific tool installation without root permissions, keeping your system clean and your project reproducible.
+PT is a platform-independent tools manager written in Go. It allows project-specific tool installation without root permissions, keeping your system clean and your project reproducible.
 
 ## Documentation
 
@@ -11,7 +11,7 @@ Full documentation is available at [https://sebakri.github.io/etc/](https://seba
 
 ## Quick Start
 
-1.  **Configure**: Create an `etc.yml` in your project root:
+1.  **Configure**: Create a `pt.yml` in your project root:
     ```yaml
     tools:
       - name: task
@@ -20,15 +20,15 @@ Full documentation is available at [https://sebakri.github.io/etc/](https://seba
     env:
       APP_DEBUG: "true"
     ```
-2.  **Install**: Run `etc install`.
-3.  **Run**: Run `etc run <tool>` or use `direnv`.
+2.  **Install**: Run `pt install`.
+3.  **Run**: Run `pt run <tool>` or use `direnv`.
 
 ## Features
 
-- **Project-Local Tools**: Installs tools into a local `.etc/bin` directory.
-- **Environment Variables**: Define project-specific environment variables in `etc.yml`.
+- **Project-Local Tools**: Installs tools into a local `.pt/bin` directory.
+- **Environment Variables**: Define project-specific environment variables in `pt.yml`.
 - **No Root Required**: Leverages user-space package managers (Go, npm, Cargo, uv).
-- **Declarative Configuration**: Defined in `etc.yml`.
+- **Declarative Configuration**: Defined in `pt.yml`.
 - **Automatic PATH & Env**: Integrated with `direnv` via `.envrc`.
 
 ## Installation

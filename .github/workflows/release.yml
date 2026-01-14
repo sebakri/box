@@ -41,11 +41,11 @@ jobs:
 
       - name: Build
         run: |
-          GOOS=${{ matrix.os }} GOARCH=${{ matrix.arch }} go build -o etc-${{ matrix.os }}-${{ matrix.arch }}${{ matrix.suffix }} main.go
+          GOOS=${{ matrix.os }} GOARCH=${{ matrix.arch }} go build -o pt-${{ matrix.os }}-${{ matrix.arch }}${{ matrix.suffix }} main.go
 
       - name: Release
         uses: softprops/action-gh-release@v1
         with:
-          files: etc-${{ matrix.os }}-${{ matrix.arch }}${{ matrix.suffix }}
+          files: pt-${{ matrix.os }}-${{ matrix.arch }}${{ matrix.suffix }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

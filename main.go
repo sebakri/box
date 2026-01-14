@@ -7,9 +7,9 @@ import (
 	"os/exec"
 	"path/filepath"
 
-	"etc/internal/config"
-	"etc/internal/doctor"
-	"etc/internal/installer"
+	"pt/internal/config"
+	"pt/internal/doctor"
+	"pt/internal/installer"
 )
 
 func main() {
@@ -37,7 +37,7 @@ func main() {
 
 func runExecute() {
 	if len(os.Args) < 3 {
-		fmt.Println("Usage: etc run <command> [args...]")
+		fmt.Println("Usage: pt run <command> [args...]")
 		os.Exit(1)
 	}
 
@@ -49,19 +49,19 @@ func runExecute() {
 		log.Fatalf("Failed to get current working directory: %v", err)
 	}
 
-	configFile := "etc.yml"
+	configFile := "pt.yml"
 	cfg, err := config.Load(configFile)
 	if err != nil {
-		// If etc.yml is missing, we can still run if the binary exists, 
+		// If pt.yml is missing, we can still run if the binary exists, 
 		// but we won't have custom env vars.
 		cfg = &config.Config{}
 	}
 
-	binDir := filepath.Join(cwd, ".etc", "bin")
+	binDir := filepath.Join(cwd, ".pt", "bin")
 	binaryPath := filepath.Join(binDir, commandName)
 
 	if _, err := os.Stat(binaryPath); os.IsNotExist(err) {
-		log.Fatalf("Binary %s not found in .etc/bin. Have you run 'etc install'?", commandName)
+		log.Fatalf("Binary %s not found in .pt/bin. Have you run 'pt install'?", commandName)
 	}
 
 	cmd := exec.Command(binaryPath, commandArgs...)
@@ -69,7 +69,7 @@ func runExecute() {
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 
-	// Ensure .etc/bin is in the PATH for the executed command and add custom env vars
+	// Ensure .pt/bin is in the PATH for the executed command and add custom env vars
 	env := os.Environ()
 	pathFound := false
 	for i, e := range env {
@@ -97,7 +97,7 @@ func runExecute() {
 }
 
 func runInstall() {
-	configFile := "etc.yml"
+	configFile := "pt.yml"
 	if _, err := os.Stat(configFile); os.IsNotExist(err) {
 		log.Fatalf("Configuration file %s not found.", configFile)
 	}
@@ -135,14 +135,14 @@ func runInstall() {
 }
 
 func usage() {
-	fmt.Println("etc - Ephemeral Tool Configuration")
+	fmt.Println("pt - Project Tool Configuration")
 	fmt.Println()
 	fmt.Println("Usage:")
-	fmt.Println("  etc <command>")
+	fmt.Println("  pt <command>")
 	fmt.Println()
 	fmt.Println("Commands:")
-	fmt.Println("  install   Install tools defined in etc.yml")
-	fmt.Println("  run       Execute a binary from .etc/bin")
-	fmt.Println("  doctor    Check if host tools (go, npm, cargo) are installed")
+	fmt.Println("  install   Install tools defined in pt.yml")
+	fmt.Println("  run       Execute a binary from .pt/bin")
+	fmt.Println("  doctor    Check if host tools (go, npm, cargo, uv) are installed")
 	fmt.Println("  help      Show this help message")
 }

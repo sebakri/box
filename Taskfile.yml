@@ -2,9 +2,9 @@ version: '3'
 
 tasks:
   build:
-    desc: Build the etc binary
+    desc: Build the pt binary
     cmds:
-      - go build -o etc main.go
+      - go build -o pt main.go
 
   test:
     desc: Run tests
@@ -19,4 +19,4 @@ tasks:
   serve-docs:
     desc: Serve documentation
     cmds:
-      - ./etc run mkdocs serve
+      - ./pt run mkdocs serve

@@ -6,7 +6,7 @@ import (
 	"os/exec"
 	"path/filepath"
 
-	"etc/internal/config"
+	"pt/internal/config"
 )
 
 type Manager struct {
@@ -22,8 +22,8 @@ func New(rootDir string, env map[string]string) *Manager {
 }
 
 func (m *Manager) Install(tool config.Tool) error {
-	etcDir := filepath.Join(m.RootDir, ".etc")
-	binDir := filepath.Join(etcDir, "bin")
+	ptDir := filepath.Join(m.RootDir, ".pt")
+	binDir := filepath.Join(ptDir, "bin")
 
 	// Ensure directories exist
 	if err := os.MkdirAll(binDir, 0755); err != nil {
@@ -34,9 +34,9 @@ func (m *Manager) Install(tool config.Tool) error {
 	case "go":
 		return m.installGo(tool, binDir)
 	case "npm":
-		return m.installNpm(tool, etcDir)
+		return m.installNpm(tool, ptDir)
 	case "cargo":
-		return m.installCargo(tool, etcDir)
+		return m.installCargo(tool, ptDir)
 	case "uv":
 		return m.installUv(tool, binDir)
 	default:
@@ -61,7 +61,7 @@ func (m *Manager) installGo(tool config.Tool, binDir string) error {
 
 func (m *Manager) EnsureEnvrc() error {
 	envrcPath := filepath.Join(m.RootDir, ".envrc")
-	content := "PATH_add .etc/bin\n"
+	content := "PATH_add .pt/bin\n"
 
 	for k, v := range m.Env {
 		content += fmt.Sprintf("export %s=\"%s\"\n", k, v)
@@ -113,8 +113,8 @@ func (m *Manager) installCargo(tool config.Tool, etcDir string) error {
 func (m *Manager) installUv(tool config.Tool, binDir string) error {
 	fmt.Printf("Installing %s (uv)...\n", tool.Name)
 
-	etcDir := filepath.Join(m.RootDir, ".etc")
-	uvDir := filepath.Join(etcDir, "uv")
+	ptDir := filepath.Join(m.RootDir, ".pt")
+	uvDir := filepath.Join(ptDir, "uv")
 
 	// uv tool install --force <package>
 	// UV_TOOL_BIN_DIR and UV_TOOL_DIR ensure project-local installation
