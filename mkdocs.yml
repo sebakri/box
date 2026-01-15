@@ -4,5 +4,10 @@ theme:
 
 repo_url: https://github.com/sebakri/box
 
+extra_javascript:
+  - javascripts/extra.js
+extra_css:
+  - stylesheets/extra.css
+
 nav:
   - Home: index.md
