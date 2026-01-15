@@ -38,7 +38,12 @@ Full documentation is available at [https://sebakri.github.io/box/](https://seba
 
 ## Installation
 
-Download the binary for your platform from the [latest releases](https://github.com/sebakri/box/releases).
+Install using curl:
+```bash
+curl -fsSL https://raw.githubusercontent.com/sebakri/box/main/scripts/install.sh | sh
+```
+
+Or download the binary for your platform from the [latest releases](https://github.com/sebakri/box/releases).
 
 ## Commands
 
