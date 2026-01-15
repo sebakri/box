@@ -30,8 +30,8 @@ BINARY="box-${OS}-${ARCH}${SUFFIX}"
 echo "Detecting latest version..."
 LATEST_TAG=$(curl -s "https://api.github.com/repos/${REPO}/releases/latest" | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/')
 
-if [ -z "${LATEST_TAG}" ]; then
-    echo "Failed to detect latest version. Please check your internet connection or GitHub API limits."
+if [ -z "${LATEST_TAG}" ] || [ "${LATEST_TAG}" = "null" ]; then
+    echo "Failed to detect latest version. This might happen if there are no releases yet or if you've hit GitHub API rate limits."
     exit 1
 fi
 
@@ -44,7 +44,12 @@ if [ -n "${BOX_INSTALL_DIR}" ]; then
 fi
 
 echo "Downloading box ${LATEST_TAG} for ${OS}/${ARCH}..."
-curl -L -o "box" "${DOWNLOAD_URL}"
+if ! curl -sSfL -o "box" "${DOWNLOAD_URL}"; then
+    echo "Failed to download binary from ${DOWNLOAD_URL}."
+    echo "Please check if a binary for your platform (${OS}/${ARCH}) is available in the ${LATEST_TAG} release."
+    exit 1
+fi
+
 chmod +x "box"
 
 if [ -w "${INSTALL_DIR}" ]; then
