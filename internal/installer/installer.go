@@ -6,7 +6,9 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"sort"
+	"strings"
 
 	"box/internal/config"
 )
@@ -228,16 +230,76 @@ func (m *Manager) installGo(tool config.Tool, binDir string) error {
 	}
 	fmt.Printf("Installing %s (go)...\n", tool.Name)
 
+	tempDir, err := os.MkdirTemp("", "box-go-install-*")
+	if err != nil {
+		return fmt.Errorf("failed to create temp dir: %w", err)
+	}
+	defer os.RemoveAll(tempDir)
+
+	// Run go install with a temporary GOPATH
 	cmd := exec.Command("go", "install", source)
-
 	env := os.Environ()
-	env = append(env, fmt.Sprintf("GOBIN=%s", binDir))
-	cmd.Env = env
-
+	env = append(env, fmt.Sprintf("GOPATH=%s", tempDir))
+	// Unset GOBIN if it's set in the environment
+	newEnv := []string{}
+	for _, e := range env {
+		if !strings.HasPrefix(e, "GOBIN=") {
+			newEnv = append(newEnv, e)
+		}
+	}
+	cmd.Env = newEnv
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
+	if err := cmd.Run(); err != nil {
+		return err
+	}
 
-	return cmd.Run()
+	// The binary name is the last part of the source path (before @)
+	binaryName := tool.Source
+	if idx := strings.LastIndex(binaryName, "/"); idx != -1 {
+		binaryName = binaryName[idx+1:]
+	}
+	
+	// On Windows, append .exe
+	if runtime.GOOS == "windows" && !strings.HasSuffix(binaryName, ".exe") {
+		binaryName += ".exe"
+	}
+
+	// Find the binary in tempDir/bin
+	// It might be in a GOOS_GOARCH subfolder if it's cross-compiling
+	srcBinary := ""
+	err = filepath.Walk(filepath.Join(tempDir, "bin"), func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		if !info.IsDir() && (info.Name() == binaryName || info.Name() == binaryName+".exe") {
+			srcBinary = path
+			return filepath.SkipAll
+		}
+		return nil
+	})
+
+	if srcBinary == "" {
+		return fmt.Errorf("could not find installed binary %s in %s", binaryName, tempDir)
+	}
+
+	destBinary := filepath.Join(binDir, tool.Name)
+	if runtime.GOOS == "windows" && !strings.HasSuffix(destBinary, ".exe") {
+		destBinary += ".exe"
+	}
+
+	fmt.Printf("Copying %s to %s...\n", srcBinary, destBinary)
+	
+	input, err := os.ReadFile(srcBinary)
+	if err != nil {
+		return fmt.Errorf("failed to read installed binary %s: %w", srcBinary, err)
+	}
+	
+	if err := os.WriteFile(destBinary, input, 0755); err != nil {
+		return fmt.Errorf("failed to copy binary to .box/bin: %w", err)
+	}
+
+	return nil
 }
 
 func (m *Manager) EnsureEnvrc() error {
