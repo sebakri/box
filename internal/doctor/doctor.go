@@ -8,7 +8,7 @@ import (
 )
 
 var (
-	titleStyle = lipgloss.NewStyle().Bold(true).MarginBottom(1)
+	titleStyle   = lipgloss.NewStyle().Bold(true).MarginBottom(1)
 	successStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("42"))
 	errorStyle   = lipgloss.NewStyle().Foreground(lipgloss.Color("1"))
 	dimStyle     = lipgloss.NewStyle().Foreground(lipgloss.Color("241"))
@@ -40,4 +40,3 @@ func Run() {
 		fmt.Println(lipgloss.NewStyle().MarginTop(1).Foreground(lipgloss.Color("42")).Render("All external tools are ready. ✨"))
 	}
 }
-

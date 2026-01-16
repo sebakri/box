@@ -5,92 +5,83 @@ import (
 	"log"
 	"os"
 	"path/filepath"
-		"strings"
-	
-		"box/internal/config"
-		"box/internal/installer"
-		"github.com/spf13/cobra"
-	)
+	"strings"
 
-			
+	"box/internal/config"
+	"box/internal/installer"
+	"github.com/spf13/cobra"
+)
 
-			// listCmd represents the list command
+// listCmd represents the list command
 
-	var listCmd = &cobra.Command{
+var listCmd = &cobra.Command{
 
-		Use:   "list",
+	Use: "list",
 
-		Short: "Lists installed tools and their binaries",
+	Short: "Lists installed tools and their binaries",
 
-		Run: func(cmd *cobra.Command, args []string) {
+	Run: func(cmd *cobra.Command, args []string) {
 
-			configFile := "box.yml"
+		configFile := "box.yml"
 
-			cfg, err := config.Load(configFile)
+		cfg, err := config.Load(configFile)
 
-			if err != nil {
+		if err != nil {
 
-				log.Fatalf("Failed to load %s: %v", configFile, err)
+			log.Fatalf("Failed to load %s: %v", configFile, err)
 
-			}
+		}
 
-	
+		cwd, err := os.Getwd()
 
-			cwd, err := os.Getwd()
+		if err != nil {
 
-			if err != nil {
+			log.Fatalf("Failed to get current working directory: %v", err)
 
-				log.Fatalf("Failed to get current working directory: %v", err)
+		}
 
-			}
+		mgr := installer.New(cwd, cfg.Env)
 
-	
+		manifest, err := mgr.LoadManifest()
 
-			mgr := installer.New(cwd, cfg.Env)
+		if err != nil {
 
-			manifest, err := mgr.LoadManifest()
+			log.Fatalf("Failed to load manifest: %v", err)
 
-			if err != nil {
+		}
 
-				log.Fatalf("Failed to load manifest: %v", err)
+		fmt.Println(titleStyle.Render("Installed tools:"))
 
-			}
+		for _, tool := range cfg.Tools {
 
-	
+			fmt.Printf("• %s %s\n", toolStyle.Render(tool.Source), typeStyle.Render("("+tool.Type+")"))
 
-			fmt.Println(titleStyle.Render("Installed tools:"))
+			if info, ok := manifest.Tools[tool.Source]; ok {
 
-			for _, tool := range cfg.Tools {
+				binaries := []string{}
 
-				fmt.Printf("• %s %s\n", toolStyle.Render(tool.Source), typeStyle.Render("("+tool.Type+")"))
+				for _, file := range info.Files {
 
-				if info, ok := manifest.Tools[tool.Source]; ok {
+					if strings.HasPrefix(file, ".box/bin/") {
 
-					binaries := []string{}
-
-					for _, file := range info.Files {
-
-						if strings.HasPrefix(file, ".box/bin/") {
-
-							binaries = append(binaries, filepath.Base(file))
-
-						}
-
-					}
-
-					if len(binaries) > 0 {
-
-						fmt.Printf("  %s %s\n", typeStyle.Render("binaries:"), binStyle.Render(strings.Join(binaries, ", ")))
+						binaries = append(binaries, filepath.Base(file))
 
 					}
 
 				}
 
+				if len(binaries) > 0 {
+
+					fmt.Printf("  %s %s\n", typeStyle.Render("binaries:"), binStyle.Render(strings.Join(binaries, ", ")))
+
+				}
+
 			}
 
-		},
+		}
 
-	}
+	},
+}
 
 func init() {
 	rootCmd.AddCommand(listCmd)

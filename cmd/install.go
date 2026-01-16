@@ -17,7 +17,6 @@ import (
 var (
 	spinnerStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("63"))
 	helpStyle    = lipgloss.NewStyle().Foreground(lipgloss.Color("241")).Margin(1, 0)
-	dotStyle     = lipgloss.NewStyle().Foreground(lipgloss.Color("236")).Render(" • ")
 	doneStyle    = lipgloss.NewStyle().Margin(1, 2)
 	checkMark    = lipgloss.NewStyle().Foreground(lipgloss.Color("42")).SetString("✓")
 )

@@ -11,6 +11,11 @@ tasks:
     cmds:
       - go test ./...
 
+  lint:
+    desc: Run linters
+    cmds:
+      - golangci-lint run
+
   tidy:
     desc: Tidy go modules
     cmds:

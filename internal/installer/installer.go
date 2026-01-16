@@ -53,7 +53,7 @@ func (m *Manager) Install(tool config.Tool) error {
 
 	// Capture state before install
 
-before, err := m.captureState()
+	before, err := m.captureState()
 	if err != nil {
 		return fmt.Errorf("failed to capture state before install: %w", err)
 	}
@@ -126,7 +126,7 @@ func (m *Manager) updateManifest(name string, files []string) error {
 	manifest := Manifest{Tools: make(map[string]ToolManifest)}
 
 	if file, err := os.Open(manifestPath); err == nil {
-		gob.NewDecoder(file).Decode(&manifest)
+		_ = gob.NewDecoder(file).Decode(&manifest)
 		file.Close()
 	}
 
@@ -204,7 +204,7 @@ func (m *Manager) Uninstall(name string) error {
 	}
 
 	delete(manifest.Tools, name)
-	
+
 	outFile, err := os.Create(manifestPath)
 	if err != nil {
 		return err
@@ -271,7 +271,7 @@ func (m *Manager) runGoInstall(source string, binDir string) error {
 			newEnv = append(newEnv, e)
 		}
 	}
-	
+
 	newEnv = append(newEnv, fmt.Sprintf("GOPATH=%s", goDir))
 	// Do not set GOBIN, rely on GOPATH/bin to avoid "cross-compiled" errors
 	// newEnv = append(newEnv, fmt.Sprintf("GOBIN=%s", goBinDir))
@@ -289,33 +289,20 @@ func (m *Manager) runGoInstall(source string, binDir string) error {
 	if idx := strings.Index(sourcePath, "@"); idx != -1 {
 		sourcePath = sourcePath[:idx]
 	}
-	
+
 	binaryName := sourcePath
 	if idx := strings.LastIndex(binaryName, "/"); idx != -1 {
 		binaryName = binaryName[idx+1:]
 	}
-	
+
 	// On Windows, append .exe
 	if runtime.GOOS == "windows" && !strings.HasSuffix(binaryName, ".exe") {
 		binaryName += ".exe"
 	}
 
-	// Find the binary in .box/go/bin
-	// It might be in a GOOS_GOARCH subfolder if it's cross-compiling
-	srcBinary := ""
-	err := filepath.Walk(goBinDir, func(path string, info os.FileInfo, err error) error {
-		if err != nil {
-			return err
-		}
-		if !info.IsDir() && (info.Name() == binaryName || info.Name() == binaryName+".exe") {
-			srcBinary = path
-			return filepath.SkipAll
-		}
-		return nil
-	})
-
-	if srcBinary == "" {
-		return fmt.Errorf("could not find installed binary %s in %s", binaryName, goBinDir)
+	srcBinary, err := m.findBinary(goBinDir, binaryName)
+	if err != nil {
+		return err
 	}
 
 	destBinary := filepath.Join(binDir, binaryName)
@@ -324,17 +311,40 @@ func (m *Manager) runGoInstall(source string, binDir string) error {
 	}
 
 	m.log("Copying %s to %s...", srcBinary, destBinary)
-	
+
 	input, err := os.ReadFile(srcBinary)
 	if err != nil {
 		return fmt.Errorf("failed to read installed binary %s: %w", srcBinary, err)
 	}
-	
+
 	if err := os.WriteFile(destBinary, input, 0755); err != nil {
 		return fmt.Errorf("failed to copy binary to .box/bin: %w", err)
 	}
 
 	return nil
+}
+
+func (m *Manager) findBinary(searchDir, name string) (string, error) {
+	var srcBinary string
+	err := filepath.Walk(searchDir, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		if !info.IsDir() && (info.Name() == name || info.Name() == name+".exe") {
+			srcBinary = path
+			return io.EOF
+		}
+		return nil
+	})
+
+	if err == io.EOF {
+		return srcBinary, nil
+	}
+	if err != nil {
+		return "", err
+	}
+
+	return "", fmt.Errorf("could not find installed binary %s in %s", name, searchDir)
 }
 
 func (m *Manager) EnsureEnvrc() error {
@@ -462,7 +472,7 @@ func (m *Manager) installScript(tool config.Tool) error {
 	env = append(env, fmt.Sprintf("BOX_DIR=%s", boxDir))
 	env = append(env, fmt.Sprintf("BOX_BIN_DIR=%s", binDir))
 	env = append(env, fmt.Sprintf("PATH=%s%s%s", binDir, string(os.PathListSeparator), os.Getenv("PATH")))
-	
+
 	// Add project custom env vars
 	for k, v := range m.Env {
 		env = append(env, fmt.Sprintf("%s=%s", k, v))
