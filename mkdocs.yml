@@ -1,7 +1,7 @@
 site_name: box
 theme:
   name: material
-  logo: assets/logo.png
+  logo: assets/logo.jpg
   features:
     - navigation.sections
     - navigation.expand
