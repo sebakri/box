@@ -45,24 +45,34 @@ Create a `box.yml` in your project root:
 ```yaml
 tools:
   - type: go
-    source: github.com/go-task/task/v3/cmd/task@latest
-  - type: uv
-    source: ruff
+    source: golang.org/x/tools/gopls
+    version: latest
   - type: cargo
     source: jj-cli
     args:
       - --strategies
       - crate-meta-data
-  - type: gem
-    source: colorize
+  - type: go
+    source: github.com/go-task/task/v3/cmd/task
+    version: latest
+  - type: uv
+    source: mkdocs
+    args:
+      - --with
+      - mkdocs-simple-blog
+  - type: uv
+    source: rich-cli
+  - type: uv
+    source: black
+    version: 24.3.0
   - type: script
-    alias: golangci-lint
+    alias: golangci-lint with script
     source:
-      - echo "Installing for $BOX_OS $BOX_ARCH..."
-      - curl -sSfL https://golangci-lint.run/install.sh | sh -s -- -b $BOX_BIN_DIR v1.60.1
-env:
-  DEBUG: "true"
-  API_URL: "http://localhost:8080"
+      - echo "Installing golangci-lint on $BOX_OS ($BOX_ARCH)"
+      - sleep 5 # So you can read the message
+      - curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $BOX_BIN_DIR v1.60.1
+  - type: npm
+    source: cowsay
 ```
 
 ### 3. Install Tools

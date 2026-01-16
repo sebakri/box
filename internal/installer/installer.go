@@ -235,7 +235,7 @@ func (m *Manager) uninstallBestEffort(name string) error {
 func (m *Manager) installGo(tool config.Tool, binDir string) error {
 	source := tool.Source.String()
 	if tool.Version != "" {
-		source = fmt.Sprintf("%s@%s", tool.Source, tool.Version)
+		source = fmt.Sprintf("%s@%s", source, tool.Version)
 	}
 	m.log("Installing %s (go)...", tool.DisplayName())
 
@@ -435,7 +435,7 @@ CMD ["/bin/bash"]
 func (m *Manager) installNpm(tool config.Tool, etcDir string) error {
 	source := tool.Source.String()
 	if tool.Version != "" {
-		source = fmt.Sprintf("%s@%s", tool.Source, tool.Version)
+		source = fmt.Sprintf("%s@%s", source, tool.Version)
 	}
 	m.log("Installing %s (npm)...", tool.DisplayName())
 
@@ -451,7 +451,7 @@ func (m *Manager) installNpm(tool config.Tool, etcDir string) error {
 func (m *Manager) installCargo(tool config.Tool, etcDir string) error {
 	source := tool.Source.String()
 	if tool.Version != "" {
-		source = fmt.Sprintf("%s@%s", tool.Source, tool.Version)
+		source = fmt.Sprintf("%s@%s", source, tool.Version)
 	}
 	m.log("Installing %s (cargo)...", tool.DisplayName())
 
@@ -471,7 +471,7 @@ func (m *Manager) installCargo(tool config.Tool, etcDir string) error {
 func (m *Manager) installUv(tool config.Tool, binDir string) error {
 	source := tool.Source.String()
 	if tool.Version != "" {
-		source = fmt.Sprintf("%s==%s", tool.Source, tool.Version)
+		source = fmt.Sprintf("%s==%s", source, tool.Version)
 	}
 	m.log("Installing %s (uv)...", tool.DisplayName())
 
