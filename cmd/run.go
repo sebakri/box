@@ -1,0 +1,83 @@
+package cmd
+
+import (
+	"fmt"
+	"log"
+	"os"
+	"os/exec"
+	"path/filepath"
+
+	"box/internal/config"
+	"github.com/spf13/cobra"
+)
+
+// runCmd represents the run command
+var runCmd = &cobra.Command{
+	Use:                "run <command> [args...]",
+	Short:              "Execute a binary from the local .box/bin directory",
+	DisableFlagParsing: true,
+	Args:               cobra.MinimumNArgs(1),
+	Run: func(cmd *cobra.Command, args []string) {
+		commandName := args[0]
+		commandArgs := args[1:]
+
+		cwd, err := os.Getwd()
+		if err != nil {
+			log.Fatalf("Failed to get current working directory: %v", err)
+		}
+
+		configFile := "box.yml"
+		cfg, err := config.Load(configFile)
+		if err != nil {
+			// If box.yml is missing, we can still run if the binary exists,
+			// but we won't have custom env vars.
+			cfg = &config.Config{}
+		}
+
+		boxDir := filepath.Join(cwd, ".box")
+		binDir := filepath.Join(boxDir, "bin")
+		binaryPath := filepath.Join(binDir, commandName)
+
+		if _, err := os.Stat(binaryPath); os.IsNotExist(err) {
+			log.Fatalf("Binary %s not found in .box/bin. Have you run 'box install'?", commandName)
+		}
+
+		execCmd := exec.Command(binaryPath, commandArgs...)
+		execCmd.Stdin = os.Stdin
+		execCmd.Stdout = os.Stdout
+		execCmd.Stderr = os.Stderr
+
+		// Ensure .box/bin is in the PATH for the executed command and add custom env vars
+		env := os.Environ()
+		pathFound := false
+		for i, e := range env {
+			if len(e) >= 5 && e[:5] == "PATH=" {
+				env[i] = "PATH=" + binDir + string(os.PathListSeparator) + e[5:]
+				pathFound = true
+				break
+			}
+		}
+		if !pathFound {
+			env = append(env, "PATH="+binDir)
+		}
+
+		env = append(env, fmt.Sprintf("BOX_DIR=%s", boxDir))
+		env = append(env, fmt.Sprintf("BOX_BIN_DIR=%s", binDir))
+
+		for k, v := range cfg.Env {
+			env = append(env, fmt.Sprintf("%s=%s", k, v))
+		}
+		execCmd.Env = env
+
+		if err := execCmd.Run(); err != nil {
+			if exitError, ok := err.(*exec.ExitError); ok {
+				os.Exit(exitError.ExitCode())
+			}
+			log.Fatalf("Failed to execute %s: %v", commandName, err)
+		}
+	},
+}
+
+func init() {
+	rootCmd.AddCommand(runCmd)
+}

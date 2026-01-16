@@ -23,7 +23,6 @@ func TestInstallGoWithVersion(t *testing.T) {
 
 	// Test case 1: Go tool with version (with 'v' prefix)
 	tool := config.Tool{
-		Name:    "task-v",
 		Type:    "go",
 		Source:  "github.com/go-task/task/v3/cmd/task",
 		Version: "v3.40.0",
@@ -34,14 +33,13 @@ func TestInstallGoWithVersion(t *testing.T) {
 		t.Fatalf("Failed to install versioned go tool (with 'v'): %v", err)
 	}
 
-	binPath := filepath.Join(tmpDir, ".box", "bin", "task-v")
+	binPath := filepath.Join(tmpDir, ".box", "bin", "task")
 	if _, err := os.Stat(binPath); err != nil {
 		t.Errorf("Expected binary at %s, but it does not exist: %v", binPath, err)
 	}
 
 	// Test case 2: Go tool with version (WITHOUT 'v' prefix - should fail with a hint)
 	tool2 := config.Tool{
-		Name:    "task-no-v",
 		Type:    "go",
 		Source:  "github.com/go-task/task/v3/cmd/task",
 		Version: "3.41.0",

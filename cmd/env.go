@@ -1,0 +1,83 @@
+package cmd
+
+import (
+	"fmt"
+	"log"
+	"os"
+	"path/filepath"
+	"strings"
+
+	"box/internal/config"
+	"github.com/spf13/cobra"
+)
+
+// envCmd represents the env command
+var envCmd = &cobra.Command{
+	Use:   "env [key]",
+	Short: "Display the merged list of environment variables",
+	Run: func(cmd *cobra.Command, args []string) {
+		cwd, err := os.Getwd()
+		if err != nil {
+			log.Fatalf("Failed to get current working directory: %v", err)
+		}
+
+		configFile := "box.yml"
+		cfg, err := config.Load(configFile)
+		if err != nil {
+			cfg = &config.Config{}
+		}
+
+		boxDir := filepath.Join(cwd, ".box")
+		binDir := filepath.Join(boxDir, "bin")
+
+		// Get current environment and merge with box.yml env and updated PATH
+		env := os.Environ()
+		pathFound := false
+		for i, e := range env {
+			if len(e) >= 5 && e[:5] == "PATH=" {
+				env[i] = "PATH=" + binDir + string(os.PathListSeparator) + e[5:]
+				pathFound = true
+				break
+			}
+		}
+		if !pathFound {
+			env = append(env, "PATH="+binDir)
+		}
+
+		// Add custom env vars from box.yml
+		// We use a map to handle overrides correctly for display
+		envMap := make(map[string]string)
+		for _, e := range env {
+			pair := strings.SplitN(e, "=", 2)
+			if len(pair) == 2 {
+				envMap[pair[0]] = pair[1]
+			}
+		}
+
+		envMap["BOX_DIR"] = boxDir
+		envMap["BOX_BIN_DIR"] = binDir
+
+		for k, v := range cfg.Env {
+			envMap[k] = v
+		}
+
+		// If a specific key is requested
+		if len(args) > 0 {
+			key := args[0]
+			if val, ok := envMap[key]; ok {
+				fmt.Print(val) // Print without newline for shell substitution $(bx env BOX_DIR)
+				return
+			}
+			os.Exit(1)
+		}
+
+		// Print in KEY=VALUE format
+		for k, v := range envMap {
+			fmt.Printf("%s=%s\n", k, v)
+		}
+	},
+}
+
+func init() {
+	rootCmd.AddCommand(envCmd)
+}

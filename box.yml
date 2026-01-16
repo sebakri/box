@@ -1,38 +1,29 @@
 tools:
-    - name: gopls
-      type: go
+    - type: go
       source: golang.org/x/tools/gopls
       version: latest
-    - name: jj
-      type: cargo
+    - type: cargo
       source: jj-cli
       args:
         - --strategies
         - crate-meta-data
-    - name: task
-      type: go
+    - type: go
       source: github.com/go-task/task/v3/cmd/task
       version: latest
-    - name: mkdocs
-      type: uv
+    - type: uv
       source: mkdocs
       args:
         - --with
         - mkdocs-simple-blog
-    - name: rich-cli
-      type: uv
+    - type: uv
       source: rich-cli
-    - name: black
-      type: uv
+    - type: uv
       source: black
       version: 24.3.0
-    - name: golangci-lint
-      type: go
+    - type: go
       source: github.com/golangci/golangci-lint/cmd/golangci-lint
       version: latest
-    - name: golangci-lint-script
-      type: script
+    - type: script
       source: curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $BOX_BIN_DIR v1.60.1
-    - name: cowsay
-      type: npm
+    - type: npm
       source: cowsay

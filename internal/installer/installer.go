@@ -3,6 +3,7 @@ package installer
 import (
 	"encoding/gob"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -16,6 +17,7 @@ import (
 type Manager struct {
 	RootDir string
 	Env     map[string]string
+	Output  io.Writer
 }
 
 type ToolManifest struct {
@@ -30,6 +32,13 @@ func New(rootDir string, env map[string]string) *Manager {
 	return &Manager{
 		RootDir: rootDir,
 		Env:     env,
+		Output:  os.Stdout,
+	}
+}
+
+func (m *Manager) log(format string, a ...any) {
+	if m.Output != nil {
+		fmt.Fprintf(m.Output, format+"\n", a...)
 	}
 }
 
@@ -85,7 +94,7 @@ before, err := m.captureState()
 	}
 	sort.Strings(newFiles)
 
-	return m.updateManifest(tool.Name, newFiles)
+	return m.updateManifest(tool.Source, newFiles)
 }
 
 func (m *Manager) captureState() (map[string]bool, error) {
@@ -185,11 +194,11 @@ func (m *Manager) Uninstall(name string) error {
 		if info.IsDir() {
 			entries, _ := os.ReadDir(fullPath)
 			if len(entries) == 0 {
-				fmt.Printf("Removing empty directory %s...\n", file)
+				m.log("Removing empty directory %s...", file)
 				os.Remove(fullPath)
 			}
 		} else {
-			fmt.Printf("Removing file %s...\n", file)
+			m.log("Removing file %s...", file)
 			os.Remove(fullPath)
 		}
 	}
@@ -210,13 +219,13 @@ func (m *Manager) uninstallBestEffort(name string) error {
 
 	binaryPath := filepath.Join(binDir, name)
 	if _, err := os.Stat(binaryPath); err == nil {
-		fmt.Printf("Removing binary %s...\n", binaryPath)
+		m.log("Removing binary %s...", binaryPath)
 		os.Remove(binaryPath)
 	}
 
 	uvToolDir := filepath.Join(boxDir, "uv", name)
 	if _, err := os.Stat(uvToolDir); err == nil {
-		fmt.Printf("Removing data directory %s...\n", uvToolDir)
+		m.log("Removing data directory %s...", uvToolDir)
 		os.RemoveAll(uvToolDir)
 	}
 
@@ -228,12 +237,12 @@ func (m *Manager) installGo(tool config.Tool, binDir string) error {
 	if tool.Version != "" {
 		source = fmt.Sprintf("%s@%s", tool.Source, tool.Version)
 	}
-	fmt.Printf("Installing %s (go)...\n", tool.Name)
+	m.log("Installing %s (go)...", tool.Source)
 
-	err := m.runGoInstall(source, binDir, tool.Name)
+	err := m.runGoInstall(source, binDir)
 	if err != nil {
 		if tool.Version != "" && !strings.HasPrefix(tool.Version, "v") && len(tool.Version) > 0 && tool.Version[0] >= '0' && tool.Version[0] <= '9' {
-			fmt.Printf("Hint: Go tools often require a 'v' prefix for versions (e.g., v%s instead of %s)\n", tool.Version, tool.Version)
+			m.log("Hint: Go tools often require a 'v' prefix for versions (e.g., v%s instead of %s)", tool.Version, tool.Version)
 		}
 		return err
 	}
@@ -241,27 +250,35 @@ func (m *Manager) installGo(tool config.Tool, binDir string) error {
 	return nil
 }
 
-func (m *Manager) runGoInstall(source string, binDir string, toolName string) error {
-	tempDir, err := os.MkdirTemp("", "box-go-install-*")
-	if err != nil {
-		return fmt.Errorf("failed to create temp dir: %w", err)
+func (m *Manager) runGoInstall(source string, binDir string) error {
+	boxDir := filepath.Join(m.RootDir, ".box")
+	goDir := filepath.Join(boxDir, "go")
+	if err := os.MkdirAll(goDir, 0755); err != nil {
+		return fmt.Errorf("failed to create go dir: %w", err)
 	}
-	defer os.RemoveAll(tempDir)
 
-	// Run go install with a temporary GOPATH
+	// Run go install with a persistent GOPATH in .box/go
 	cmd := exec.Command("go", "install", source)
 	env := os.Environ()
-	env = append(env, fmt.Sprintf("GOPATH=%s", tempDir))
-	// Unset GOBIN if it's set in the environment
+
+	// Explicitly set GOBIN to .box/go/bin to ensure we know where it lands
+	goBinDir := filepath.Join(goDir, "bin")
+
+	// Filter out GOBIN and GOPATH from existing env to ensure ours take precedence cleanly
 	newEnv := []string{}
 	for _, e := range env {
-		if !strings.HasPrefix(e, "GOBIN=") {
+		if !strings.HasPrefix(e, "GOBIN=") && !strings.HasPrefix(e, "GOPATH=") {
 			newEnv = append(newEnv, e)
 		}
 	}
+	
+	newEnv = append(newEnv, fmt.Sprintf("GOPATH=%s", goDir))
+	// Do not set GOBIN, rely on GOPATH/bin to avoid "cross-compiled" errors
+	// newEnv = append(newEnv, fmt.Sprintf("GOBIN=%s", goBinDir))
+
 	cmd.Env = newEnv
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
+	cmd.Stdout = m.Output
+	cmd.Stderr = m.Output
 	if err := cmd.Run(); err != nil {
 		return err
 	}
@@ -283,10 +300,10 @@ func (m *Manager) runGoInstall(source string, binDir string, toolName string) er
 		binaryName += ".exe"
 	}
 
-	// Find the binary in tempDir/bin
+	// Find the binary in .box/go/bin
 	// It might be in a GOOS_GOARCH subfolder if it's cross-compiling
 	srcBinary := ""
-	err = filepath.Walk(filepath.Join(tempDir, "bin"), func(path string, info os.FileInfo, err error) error {
+	err := filepath.Walk(goBinDir, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
 		}
@@ -298,15 +315,15 @@ func (m *Manager) runGoInstall(source string, binDir string, toolName string) er
 	})
 
 	if srcBinary == "" {
-		return fmt.Errorf("could not find installed binary %s in %s", binaryName, tempDir)
+		return fmt.Errorf("could not find installed binary %s in %s", binaryName, goBinDir)
 	}
 
-	destBinary := filepath.Join(binDir, toolName)
+	destBinary := filepath.Join(binDir, binaryName)
 	if runtime.GOOS == "windows" && !strings.HasSuffix(destBinary, ".exe") {
 		destBinary += ".exe"
 	}
 
-	fmt.Printf("Copying %s to %s...\n", srcBinary, destBinary)
+	m.log("Copying %s to %s...", srcBinary, destBinary)
 	
 	input, err := os.ReadFile(srcBinary)
 	if err != nil {
@@ -332,16 +349,16 @@ func (m *Manager) EnsureEnvrc() error {
 		content += fmt.Sprintf("export %s=\"%s\"\n", k, v)
 	}
 
-	fmt.Println("Updating .envrc...")
+	m.log("Updating .envrc...")
 	return os.WriteFile(envrcPath, []byte(content), 0644)
 }
 
 func (m *Manager) AllowDirenv() error {
-	fmt.Println("Running direnv allow...")
+	m.log("Running direnv allow...")
 	cmd := exec.Command("direnv", "allow")
 	cmd.Dir = m.RootDir
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
+	cmd.Stdout = m.Output
+	cmd.Stderr = m.Output
 	return cmd.Run()
 }
 
@@ -350,13 +367,13 @@ func (m *Manager) installNpm(tool config.Tool, etcDir string) error {
 	if tool.Version != "" {
 		source = fmt.Sprintf("%s@%s", tool.Source, tool.Version)
 	}
-	fmt.Printf("Installing %s (npm)...\n", tool.Name)
+	m.log("Installing %s (npm)...", tool.Source)
 
 	// npm install --prefix .etc -g <package>
 	cmd := exec.Command("npm", "install", "--prefix", etcDir, "-g", source)
 
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
+	cmd.Stdout = m.Output
+	cmd.Stderr = m.Output
 
 	return cmd.Run()
 }
@@ -366,7 +383,7 @@ func (m *Manager) installCargo(tool config.Tool, etcDir string) error {
 	if tool.Version != "" {
 		source = fmt.Sprintf("%s@%s", tool.Source, tool.Version)
 	}
-	fmt.Printf("Installing %s (cargo)...\n", tool.Name)
+	m.log("Installing %s (cargo)...", tool.Source)
 
 	// cargo binstall --root .etc <args> <package>
 	args := []string{"binstall", "--root", etcDir, "-y"}
@@ -375,8 +392,8 @@ func (m *Manager) installCargo(tool config.Tool, etcDir string) error {
 
 	cmd := exec.Command("cargo", args...)
 
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
+	cmd.Stdout = m.Output
+	cmd.Stderr = m.Output
 
 	return cmd.Run()
 }
@@ -386,7 +403,7 @@ func (m *Manager) installUv(tool config.Tool, binDir string) error {
 	if tool.Version != "" {
 		source = fmt.Sprintf("%s==%s", tool.Source, tool.Version)
 	}
-	fmt.Printf("Installing %s (uv)...\n", tool.Name)
+	m.log("Installing %s (uv)...", tool.Source)
 
 	boxDir := filepath.Join(m.RootDir, ".box")
 	uvDir := filepath.Join(boxDir, "uv")
@@ -404,14 +421,14 @@ func (m *Manager) installUv(tool config.Tool, binDir string) error {
 	env = append(env, fmt.Sprintf("UV_TOOL_DIR=%s", uvDir))
 	cmd.Env = env
 
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
+	cmd.Stdout = m.Output
+	cmd.Stderr = m.Output
 
 	return cmd.Run()
 }
 
 func (m *Manager) installGem(tool config.Tool, binDir string) error {
-	fmt.Printf("Installing %s %s (gem)...\n", tool.Name, tool.Version)
+	m.log("Installing %s %s (gem)...", tool.Source, tool.Version)
 
 	boxDir := filepath.Join(m.RootDir, ".box")
 	gemDir := filepath.Join(boxDir, "gems")
@@ -426,14 +443,14 @@ func (m *Manager) installGem(tool config.Tool, binDir string) error {
 
 	cmd := exec.Command("gem", args...)
 
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
+	cmd.Stdout = m.Output
+	cmd.Stderr = m.Output
 
 	return cmd.Run()
 }
 
 func (m *Manager) installScript(tool config.Tool) error {
-	fmt.Printf("Installing via script: %s\n", tool.Source)
+	m.log("Installing via script: %s", tool.Source)
 
 	boxDir := filepath.Join(m.RootDir, ".box")
 	binDir := filepath.Join(boxDir, "bin")
@@ -452,8 +469,8 @@ func (m *Manager) installScript(tool config.Tool) error {
 	}
 	cmd.Env = env
 
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
+	cmd.Stdout = m.Output
+	cmd.Stderr = m.Output
 
 	return cmd.Run()
 }

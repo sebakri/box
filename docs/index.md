@@ -89,8 +89,6 @@ task --version
 ## Commands
 
 - `box install`: Installs tools defined in `box.yml`.
-- `box add <type> <source> [args...]`: Adds a new tool to `box.yml`.
-- `box remove <name>`: Removes a tool and its associated files.
 - `box list`: Lists installed tools and their binaries.
 - `box run <command>`: Executes a binary from the local `.box/bin` directory.
 - `box env`: Displays the merged list of environment variables.

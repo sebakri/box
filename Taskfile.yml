@@ -1,4 +1,4 @@
-version: '3'
+version: "3"
 
 tasks:
   build:
@@ -19,4 +19,4 @@ tasks:
   serve-docs:
     desc: Serve documentation
     cmds:
-      - ./box run mkdocs serve
+      - go run . run mkdocs serve

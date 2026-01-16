@@ -4,3 +4,4 @@ box
 site/
 firebase-debug.log
 GEMINI.md
+.gemini-clipboard/
