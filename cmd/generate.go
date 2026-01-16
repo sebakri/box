@@ -13,11 +13,11 @@ import (
 
 // generateCmd represents the generate command
 var generateCmd = &cobra.Command{
-	Use:   "generate <type>",
-	Short: "Generates configuration files",
-	Long:  `Generates configuration files for shell integration or containerization (e.g., direnv, dockerfile).`,
+	Use:       "generate <type>",
+	Short:     "Generates configuration files",
+	Long:      `Generates configuration files for shell integration or containerization (e.g., direnv, dockerfile).`,
 	ValidArgs: []string{"direnv", "dockerfile"},
-	Args:  cobra.MatchAll(cobra.ExactArgs(1), cobra.OnlyValidArgs),
+	Args:      cobra.MatchAll(cobra.ExactArgs(1), cobra.OnlyValidArgs),
 	Run: func(cmd *cobra.Command, args []string) {
 		genType := args[0]
 

@@ -1,4 +1,4 @@
-site_name: box documentation
+site_name: box
 theme:
   name: material
   features:
