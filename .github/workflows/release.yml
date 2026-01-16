@@ -37,14 +37,14 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.21'
+          go-version: '1.24'
 
       - name: Build
         run: |
-          GOOS=${{ matrix.os }} GOARCH=${{ matrix.arch }} go build -o box-${{ matrix.os }}-${{ matrix.arch }}${{ matrix.suffix }} main.go
+          GOOS=${{ matrix.os }} GOARCH=${{ matrix.arch }} go build -ldflags="-s -w" -o box-${{ matrix.os }}-${{ matrix.arch }}${{ matrix.suffix }} main.go
 
       - name: Release
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v2
         with:
           files: box-${{ matrix.os }}-${{ matrix.arch }}${{ matrix.suffix }}
         env:
