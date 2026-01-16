@@ -224,31 +224,21 @@ func (m *Manager) uninstallBestEffort(name string) error {
 }
 
 func (m *Manager) installGo(tool config.Tool, binDir string) error {
-	version := tool.Version
-	if version != "" && version != "latest" && version != "master" && !strings.HasPrefix(version, "v") {
-		// If it looks like a version (starts with a digit), try prepending 'v'
-		if len(version) > 0 && version[0] >= '0' && version[0] <= '9' {
-			version = "v" + version
-		}
-	}
-
 	source := tool.Source
-	if version != "" {
-		source = fmt.Sprintf("%s@%s", tool.Source, version)
+	if tool.Version != "" {
+		source = fmt.Sprintf("%s@%s", tool.Source, tool.Version)
 	}
 	fmt.Printf("Installing %s (go)...\n", tool.Name)
 
 	err := m.runGoInstall(source, binDir, tool.Name)
-	
-	// If it failed and we didn't have a 'v' prefix, try with it as a fallback
-	if err != nil && tool.Version != "" && !strings.HasPrefix(tool.Version, "v") && version == tool.Version {
-		fallbackVersion := "v" + tool.Version
-		fallbackSource := fmt.Sprintf("%s@%s", tool.Source, fallbackVersion)
-		fmt.Printf("Retrying %s with version %s...\n", tool.Name, fallbackVersion)
-		err = m.runGoInstall(fallbackSource, binDir, tool.Name)
+	if err != nil {
+		if tool.Version != "" && !strings.HasPrefix(tool.Version, "v") && len(tool.Version) > 0 && tool.Version[0] >= '0' && tool.Version[0] <= '9' {
+			fmt.Printf("Hint: Go tools often require a 'v' prefix for versions (e.g., v%s instead of %s)\n", tool.Version, tool.Version)
+		}
+		return err
 	}
 
-	return err
+	return nil
 }
 
 func (m *Manager) runGoInstall(source string, binDir string, toolName string) error {
