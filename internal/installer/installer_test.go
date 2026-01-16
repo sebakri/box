@@ -24,7 +24,7 @@ func TestInstallGoWithVersion(t *testing.T) {
 	// Test case 1: Go tool with version (with 'v' prefix)
 	tool := config.Tool{
 		Type:    "go",
-		Source:  "github.com/go-task/task/v3/cmd/task",
+		Source:  config.Source{"github.com/go-task/task/v3/cmd/task"},
 		Version: "v3.40.0",
 	}
 
@@ -41,7 +41,7 @@ func TestInstallGoWithVersion(t *testing.T) {
 	// Test case 2: Go tool with version (WITHOUT 'v' prefix - should fail with a hint)
 	tool2 := config.Tool{
 		Type:    "go",
-		Source:  "github.com/go-task/task/v3/cmd/task",
+		Source:  config.Source{"github.com/go-task/task/v3/cmd/task"},
 		Version: "3.41.0",
 	}
 

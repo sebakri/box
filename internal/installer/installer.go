@@ -94,7 +94,7 @@ func (m *Manager) Install(tool config.Tool) error {
 	}
 	sort.Strings(newFiles)
 
-	return m.updateManifest(tool.Source, newFiles)
+	return m.updateManifest(tool.Source.String(), newFiles)
 }
 
 func (m *Manager) captureState() (map[string]bool, error) {
@@ -233,11 +233,11 @@ func (m *Manager) uninstallBestEffort(name string) error {
 }
 
 func (m *Manager) installGo(tool config.Tool, binDir string) error {
-	source := tool.Source
+	source := tool.Source.String()
 	if tool.Version != "" {
 		source = fmt.Sprintf("%s@%s", tool.Source, tool.Version)
 	}
-	m.log("Installing %s (go)...", tool.Source)
+	m.log("Installing %s (go)...", tool.DisplayName())
 
 	err := m.runGoInstall(source, binDir)
 	if err != nil {
@@ -353,6 +353,8 @@ func (m *Manager) EnsureEnvrc() error {
 	binDir := filepath.Join(boxDir, "bin")
 	content := fmt.Sprintf("export BOX_DIR=\"%s\"\n", boxDir)
 	content += fmt.Sprintf("export BOX_BIN_DIR=\"%s\"\n", binDir)
+	content += fmt.Sprintf("export BOX_OS=\"%s\"\n", runtime.GOOS)
+	content += fmt.Sprintf("export BOX_ARCH=\"%s\"\n", runtime.GOARCH)
 	content += "PATH_add .box/bin\n"
 
 	for k, v := range m.Env {
@@ -385,7 +387,7 @@ ARG INSTALL_RUBY=true
 
 # Install system dependencies and selected package managers
 RUN apt-get update && \
-    PACKAGES="curl ca-certificates git build-essential" && \
+    PACKAGES="curl ca-certificates git build-essential direnv" && \
     if [ "$INSTALL_NODE" = "true" ]; then PACKAGES="$PACKAGES nodejs npm"; fi && \
     if [ "$INSTALL_RUBY" = "true" ]; then PACKAGES="$PACKAGES ruby-full"; fi && \
     apt-get install -y --no-install-recommends $PACKAGES && \
@@ -399,7 +401,8 @@ ENV PATH="/usr/local/go/bin:${PATH}"
 
 # Install cargo-binstall if enabled
 RUN if [ "$INSTALL_CARGO" = "true" ]; then \
-    curl -L --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/cargo-bins/cargo-binstall/main/install.sh | sh; \
+    curl -L --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/cargo-bins/cargo-binstall/main/install.sh | sh && \
+    if [ -f "$HOME/.cargo/bin/cargo-binstall" ]; then mv "$HOME/.cargo/bin/cargo-binstall" /usr/local/bin/; fi; \
     fi
 
 # Install uv globally if enabled
@@ -423,18 +426,18 @@ RUN box install --non-interactive
 # Add box binaries to PATH
 ENV PATH="/home/box/.box/bin:${PATH}"
 
-ENTRYPOINT ["/bin/bash"]
+CMD ["/bin/bash"]
 `
 	m.log("Generating Dockerfile...")
 	return os.WriteFile(dockerfilePath, []byte(content), 0644)
 }
 
 func (m *Manager) installNpm(tool config.Tool, etcDir string) error {
-	source := tool.Source
+	source := tool.Source.String()
 	if tool.Version != "" {
 		source = fmt.Sprintf("%s@%s", tool.Source, tool.Version)
 	}
-	m.log("Installing %s (npm)...", tool.Source)
+	m.log("Installing %s (npm)...", tool.DisplayName())
 
 	// npm install --prefix .etc -g <package>
 	cmd := exec.Command("npm", "install", "--prefix", etcDir, "-g", source)
@@ -446,11 +449,11 @@ func (m *Manager) installNpm(tool config.Tool, etcDir string) error {
 }
 
 func (m *Manager) installCargo(tool config.Tool, etcDir string) error {
-	source := tool.Source
+	source := tool.Source.String()
 	if tool.Version != "" {
 		source = fmt.Sprintf("%s@%s", tool.Source, tool.Version)
 	}
-	m.log("Installing %s (cargo)...", tool.Source)
+	m.log("Installing %s (cargo)...", tool.DisplayName())
 
 	// cargo-binstall --root .etc <args> <package>
 	args := []string{"--root", etcDir, "-y"}
@@ -466,11 +469,11 @@ func (m *Manager) installCargo(tool config.Tool, etcDir string) error {
 }
 
 func (m *Manager) installUv(tool config.Tool, binDir string) error {
-	source := tool.Source
+	source := tool.Source.String()
 	if tool.Version != "" {
 		source = fmt.Sprintf("%s==%s", tool.Source, tool.Version)
 	}
-	m.log("Installing %s (uv)...", tool.Source)
+	m.log("Installing %s (uv)...", tool.DisplayName())
 
 	boxDir := filepath.Join(m.RootDir, ".box")
 	uvDir := filepath.Join(boxDir, "uv")
@@ -495,7 +498,7 @@ func (m *Manager) installUv(tool config.Tool, binDir string) error {
 }
 
 func (m *Manager) installGem(tool config.Tool, binDir string) error {
-	m.log("Installing %s %s (gem)...", tool.Source, tool.Version)
+	m.log("Installing %s %s (gem)...", tool.DisplayName(), tool.Version)
 
 	boxDir := filepath.Join(m.RootDir, ".box")
 	gemDir := filepath.Join(boxDir, "gems")
@@ -506,7 +509,7 @@ func (m *Manager) installGem(tool config.Tool, binDir string) error {
 		args = append(args, "-v", tool.Version)
 	}
 	args = append(args, tool.Args...)
-	args = append(args, tool.Source)
+	args = append(args, tool.Source.String())
 
 	cmd := exec.Command("gem", args...)
 
@@ -517,17 +520,19 @@ func (m *Manager) installGem(tool config.Tool, binDir string) error {
 }
 
 func (m *Manager) installScript(tool config.Tool) error {
-	m.log("Installing via script: %s", tool.Source)
+	m.log("Installing via script: %s", tool.DisplayName())
 
 	boxDir := filepath.Join(m.RootDir, ".box")
 	binDir := filepath.Join(boxDir, "bin")
 
-	cmd := exec.Command("sh", "-c", tool.Source)
+	cmd := exec.Command("sh", "-c", tool.Source.String())
 	cmd.Dir = m.RootDir
 
 	env := os.Environ()
 	env = append(env, fmt.Sprintf("BOX_DIR=%s", boxDir))
 	env = append(env, fmt.Sprintf("BOX_BIN_DIR=%s", binDir))
+	env = append(env, fmt.Sprintf("BOX_OS=%s", runtime.GOOS))
+	env = append(env, fmt.Sprintf("BOX_ARCH=%s", runtime.GOARCH))
 	env = append(env, fmt.Sprintf("PATH=%s%s%s", binDir, string(os.PathListSeparator), os.Getenv("PATH")))
 
 	// Add project custom env vars

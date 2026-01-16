@@ -5,6 +5,7 @@ import (
 	"io"
 	"log"
 	"os"
+	"strings"
 
 	"box/internal/config"
 	"box/internal/installer"
@@ -35,15 +36,22 @@ type installMsg struct {
 	err   error
 }
 
+type outputMsg struct {
+	index int
+	line  string
+}
+
 type toolTask struct {
-	name   string
-	status toolStatus
-	err    error
+	name       string
+	status     toolStatus
+	err        error
+	lastOutput string
 }
 
 type model struct {
 	tasks    []toolTask
 	index    int
+	indexPtr *int
 	spinner  spinner.Model
 	quitting bool
 	manager  *installer.Manager
@@ -73,6 +81,11 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.quitting = true
 			return m, tea.Quit
 		}
+	case outputMsg:
+		if msg.index < len(m.tasks) {
+			m.tasks[msg.index].lastOutput = msg.line
+		}
+		return m, nil
 	case installMsg:
 		if msg.err != nil {
 			m.tasks[msg.index].status = statusFailed
@@ -82,6 +95,9 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		m.tasks[msg.index].status = statusDone
 		m.index++
+		if m.indexPtr != nil {
+			*m.indexPtr = m.index
+		}
 		if m.index < len(m.tasks) {
 			m.tasks[m.index].status = statusInstalling
 			return m, m.installNext()
@@ -104,6 +120,7 @@ func (m model) View() string {
 
 	// Define a fixed-width style for the status column to ensure alignment
 	statusStyle := lipgloss.NewStyle().Width(2).Align(lipgloss.Center)
+	outputStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("241")).MarginLeft(6)
 
 	for i, t := range m.tasks {
 		status := " "
@@ -116,6 +133,9 @@ func (m model) View() string {
 		}
 
 		s += fmt.Sprintf("  %s %s\n", statusStyle.Render(status), t.name)
+		if t.status == statusInstalling && t.lastOutput != "" {
+			s += outputStyle.Render(t.lastOutput) + "\n"
+		}
 		if t.err != nil {
 			s += lipgloss.NewStyle().Foreground(lipgloss.Color("1")).MarginLeft(6).Render(fmt.Sprintf("Error: %v", t.err)) + "\n"
 		}
@@ -131,6 +151,27 @@ func (m model) View() string {
 	}
 
 	return s + helpStyle.Render("Press q to quit") + "\n"
+}
+
+type progressWriter struct {
+	program *tea.Program
+	index   func() int
+}
+
+func (w *progressWriter) Write(p []byte) (n int, err error) {
+	lines := strings.Split(string(p), "\n")
+	var lastLine string
+	for i := len(lines) - 1; i >= 0; i-- {
+		line := strings.TrimSpace(lines[i])
+		if line != "" {
+			lastLine = line
+			break
+		}
+	}
+	if lastLine != "" {
+		w.program.Send(outputMsg{index: w.index(), line: lastLine})
+	}
+	return len(p), nil
 }
 
 var nonInteractive bool
@@ -160,12 +201,12 @@ var installCmd = &cobra.Command{
 		if nonInteractive {
 			fmt.Println("Starting tool installation (non-interactive)...")
 			for _, tool := range cfg.Tools {
-				fmt.Printf("• Installing %s...\n", tool.Source)
+				fmt.Printf("• Installing %s...\n", tool.DisplayName())
 				if err := mgr.Install(tool); err != nil {
-					fmt.Printf("❌ Failed to install %s: %v\n", tool.Source, err)
+					fmt.Printf("❌ Failed to install %s: %v\n", tool.DisplayName(), err)
 					os.Exit(1)
 				}
-				fmt.Printf("✅ Successfully installed %s\n", tool.Source)
+				fmt.Printf("✅ Successfully installed %s\n", tool.DisplayName())
 			}
 			fmt.Println("All tools installed successfully! ✨")
 			return
@@ -175,7 +216,7 @@ var installCmd = &cobra.Command{
 
 		tasks := make([]toolTask, len(cfg.Tools))
 		for i, t := range cfg.Tools {
-			tasks[i] = toolTask{name: t.Source, status: statusPending}
+			tasks[i] = toolTask{name: t.DisplayName(), status: statusPending}
 		}
 		if len(tasks) > 0 {
 			tasks[0].status = statusInstalling
@@ -185,14 +226,25 @@ var installCmd = &cobra.Command{
 		s.Spinner = spinner.Dot
 		s.Style = spinnerStyle
 
+		sharedIndex := 0
 		m := model{
-			tasks:   tasks,
-			spinner: s,
-			manager: mgr,
-			tools:   cfg.Tools,
+			tasks:    tasks,
+			indexPtr: &sharedIndex,
+			spinner:  s,
+			manager:  mgr,
+			tools:    cfg.Tools,
 		}
 
-		if _, err := tea.NewProgram(m).Run(); err != nil {
+		p := tea.NewProgram(m)
+
+		mgr.Output = &progressWriter{
+			program: p,
+			index: func() int {
+				return sharedIndex
+			},
+		}
+
+		if _, err := p.Run(); err != nil {
 			fmt.Println("Error running program:", err)
 			os.Exit(1)
 		}

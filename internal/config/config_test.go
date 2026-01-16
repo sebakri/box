@@ -43,7 +43,75 @@ env:
 		t.Errorf("Expected Env['KEY'] to be 'value', got '%s'", cfg.Env["KEY"])
 	}
 
-	if cfg.Tools[0].Source != "example.com/tool" {
-		t.Errorf("Expected source 'example.com/tool', got '%s'", cfg.Tools[0].Source)
+	if cfg.Tools[0].Source.String() != "example.com/tool" {
+		t.Errorf("Expected source 'example.com/tool', got '%s'", cfg.Tools[0].Source.String())
+	}
+}
+
+func TestLoadMultilineScript(t *testing.T) {
+	content := []byte(`
+tools:
+  - type: script
+    source:
+      - echo "hello"
+      - echo "world"
+`)
+	tmpfile, err := os.CreateTemp("", "box-test-*.yml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.Remove(tmpfile.Name())
+
+	if _, err := tmpfile.Write(content); err != nil {
+		t.Fatal(err)
+	}
+	if err := tmpfile.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	cfg, err := Load(tmpfile.Name())
+	if err != nil {
+		t.Fatalf("Load failed: %v", err)
+	}
+
+	if len(cfg.Tools) != 1 {
+		t.Fatalf("Expected 1 tool, got %d", len(cfg.Tools))
+	}
+
+	expected := "echo \"hello\"\necho \"world\""
+	if cfg.Tools[0].Source.String() != expected {
+		t.Errorf("Expected source %q, got %q", expected, cfg.Tools[0].Source.String())
+	}
+}
+
+func TestToolDisplayName(t *testing.T) {
+	tests := []struct {
+		name     string
+		tool     Tool
+		expected string
+	}{
+		{
+			name: "with alias",
+			tool: Tool{
+				Source: Source{"echo hello"},
+				Alias:  "hello-script",
+			},
+			expected: "hello-script",
+		},
+		{
+			name: "without alias",
+			tool: Tool{
+				Source: Source{"echo hello"},
+			},
+			expected: "echo hello",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := tt.tool.DisplayName(); got != tt.expected {
+				t.Errorf("DisplayName() = %v, want %v", got, tt.expected)
+			}
+		})
 	}
 }

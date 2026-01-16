@@ -54,9 +54,9 @@ var listCmd = &cobra.Command{
 
 		for _, tool := range cfg.Tools {
 
-			fmt.Printf("• %s %s\n", toolStyle.Render(tool.Source), typeStyle.Render("("+tool.Type+")"))
+			fmt.Printf("• %s %s\n", toolStyle.Render(tool.DisplayName()), typeStyle.Render("("+tool.Type+")"))
 
-			if info, ok := manifest.Tools[tool.Source]; ok {
+			if info, ok := manifest.Tools[tool.Source.String()]; ok {
 
 				binaries := []string{}
 
