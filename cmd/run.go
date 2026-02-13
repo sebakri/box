@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 
 	"box/internal/config"
+
 	"github.com/spf13/cobra"
 )
 
@@ -19,6 +20,9 @@ var runCmd = &cobra.Command{
 	Args:               cobra.MinimumNArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		commandName := args[0]
+		if commandName != filepath.Base(commandName) {
+			log.Fatalf("Invalid command name %q: path separators are not allowed", commandName)
+		}
 		commandArgs := args[1:]
 
 		cwd, err := os.Getwd()

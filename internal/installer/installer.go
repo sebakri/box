@@ -186,6 +186,15 @@ func (m *Manager) Uninstall(name string) error {
 
 	for _, file := range toolInfo.Files {
 		fullPath := filepath.Join(m.RootDir, file)
+
+		// Security check: ensure the file is inside the project root
+		// This prevents path traversal attacks if the manifest is tampered with.
+		rel, err := filepath.Rel(m.RootDir, fullPath)
+		if err != nil || strings.HasPrefix(rel, "..") || strings.HasPrefix(rel, "/") || (runtime.GOOS == "windows" && strings.Contains(rel, ":")) {
+			m.log("Security Warning: Skipping deletion of unsafe path %s", fullPath)
+			continue
+		}
+
 		info, err := os.Stat(fullPath)
 		if err != nil {
 			continue

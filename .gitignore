@@ -5,3 +5,4 @@ site/
 firebase-debug.log
 GEMINI.md
 .gemini-clipboard/
+.gemini_security/

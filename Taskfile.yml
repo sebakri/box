@@ -30,3 +30,9 @@ tasks:
     desc: Serve documentation
     cmds:
       - go run . run mkdocs serve
+
+  install:
+    desc: "Install box on this machine"
+    cmds:
+      - go build -o box main.go
+      - sudo mv box /usr/local/bin/box
