@@ -1,0 +1,4 @@
+tools:
+  - type: go
+    source: github.com/caarlos0/svu
+    version: v1.12.0

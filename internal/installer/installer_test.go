@@ -17,7 +17,15 @@ func TestInstallGoWithVersion(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer os.RemoveAll(tmpDir)
+	defer func() {
+		filepath.Walk(tmpDir, func(path string, info os.FileInfo, err error) error {
+			if err == nil {
+				os.Chmod(path, 0777)
+			}
+			return nil
+		})
+		os.RemoveAll(tmpDir)
+	}()
 
 	m := New(tmpDir, nil)
 

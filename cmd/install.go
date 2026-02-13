@@ -9,6 +9,7 @@ import (
 
 	"box/internal/config"
 	"box/internal/installer"
+
 	"github.com/charmbracelet/bubbles/spinner"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -174,14 +175,16 @@ func (w *progressWriter) Write(p []byte) (n int, err error) {
 	return len(p), nil
 }
 
-var nonInteractive bool
+var (
+	nonInteractive bool
+	configFile     string
+)
 
 // installCmd represents the install command
 var installCmd = &cobra.Command{
 	Use:   "install",
 	Short: "Installs tools defined in box.yml",
 	Run: func(cmd *cobra.Command, args []string) {
-		configFile := "box.yml"
 		if _, err := os.Stat(configFile); os.IsNotExist(err) {
 			log.Fatalf("Configuration file %s not found.", configFile)
 		}
@@ -253,5 +256,6 @@ var installCmd = &cobra.Command{
 
 func init() {
 	installCmd.Flags().BoolVarP(&nonInteractive, "non-interactive", "y", false, "Run in non-interactive mode (no TTY required)")
+	installCmd.Flags().StringVarP(&configFile, "file", "f", "box.yml", "Configuration file to use")
 	rootCmd.AddCommand(installCmd)
 }
