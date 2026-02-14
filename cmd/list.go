@@ -7,9 +7,10 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/spf13/cobra"
+
 	"github.com/sebakri/box/internal/config"
 	"github.com/sebakri/box/internal/installer"
-	"github.com/spf13/cobra"
 )
 
 // listCmd represents the list command

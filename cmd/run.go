@@ -46,6 +46,7 @@ var runCmd = &cobra.Command{
 			log.Fatalf("Binary %s not found in .box/bin. Have you run 'box install'?", commandName)
 		}
 
+		//nolint:gosec
 		execCmd := exec.Command(filepath.Clean(binaryPath), commandArgs...)
 		execCmd.Stdin = os.Stdin
 		execCmd.Stdout = os.Stdout

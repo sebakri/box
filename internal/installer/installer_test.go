@@ -20,6 +20,7 @@ func TestInstallGoWithVersion(t *testing.T) {
 	defer func() {
 		_ = filepath.Walk(tmpDir, func(path string, _ os.FileInfo, err error) error {
 			if err == nil {
+				//nolint:gosec
 				_ = os.Chmod(path, 0700)
 			}
 			return nil

@@ -6,9 +6,10 @@ import (
 	"log"
 	"os"
 
+	"github.com/spf13/cobra"
+
 	"github.com/sebakri/box/internal/config"
 	"github.com/sebakri/box/internal/installer"
-	"github.com/spf13/cobra"
 )
 
 // generateCmd represents the generate command

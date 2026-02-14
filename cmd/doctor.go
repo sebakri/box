@@ -2,8 +2,9 @@
 package cmd
 
 import (
-	"github.com/sebakri/box/internal/doctor"
 	"github.com/spf13/cobra"
+
+	"github.com/sebakri/box/internal/doctor"
 )
 
 // doctorCmd represents the doctor command
