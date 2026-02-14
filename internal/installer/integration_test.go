@@ -40,7 +40,7 @@ func TestIntegrationInstallation(t *testing.T) {
 
 	// Use a dedicated GOPATH for the test to avoid caching issues
 	testGoPath := filepath.Join(t.TempDir(), "gopath")
-	os.Setenv("GOPATH", testGoPath)
+	t.Setenv("GOPATH", testGoPath)
 
 	// Helper to fix permissions for cleanup
 
