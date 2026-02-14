@@ -18,9 +18,9 @@ func TestInstallGoWithVersion(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer func() {
-		_ = filepath.Walk(tmpDir, func(path string, info os.FileInfo, err error) error {
+		_ = filepath.Walk(tmpDir, func(path string, _ os.FileInfo, err error) error {
 			if err == nil {
-				_ = os.Chmod(path, 0777)
+				_ = os.Chmod(path, 0700)
 			}
 			return nil
 		})

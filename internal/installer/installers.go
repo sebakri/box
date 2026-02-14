@@ -35,6 +35,7 @@ func (m *Manager) runCommand(name string, args []string, env []string, dir strin
 // GoInstaller implements the Installer interface for Go tools.
 type GoInstaller struct{}
 
+// Install installs a Go tool using 'go install'.
 func (i *GoInstaller) Install(tool config.Tool, m *Manager) error {
 	boxDir := filepath.Join(m.RootDir, ".box")
 	binDir := filepath.Join(boxDir, "bin")
@@ -44,6 +45,7 @@ func (i *GoInstaller) Install(tool config.Tool, m *Manager) error {
 // NpmInstaller implements the Installer interface for NPM packages.
 type NpmInstaller struct{}
 
+// Install installs an NPM package.
 func (i *NpmInstaller) Install(tool config.Tool, m *Manager) error {
 	boxDir := filepath.Join(m.RootDir, ".box")
 	return m.installNpm(tool, boxDir)
@@ -52,6 +54,7 @@ func (i *NpmInstaller) Install(tool config.Tool, m *Manager) error {
 // CargoInstaller implements the Installer interface for Cargo crates.
 type CargoInstaller struct{}
 
+// Install installs a Cargo crate using 'cargo-binstall'.
 func (i *CargoInstaller) Install(tool config.Tool, m *Manager) error {
 	boxDir := filepath.Join(m.RootDir, ".box")
 	return m.installCargo(tool, boxDir)
@@ -60,6 +63,7 @@ func (i *CargoInstaller) Install(tool config.Tool, m *Manager) error {
 // UvInstaller implements the Installer interface for Python tools via uv.
 type UvInstaller struct{}
 
+// Install installs a Python tool using 'uv tool install'.
 func (i *UvInstaller) Install(tool config.Tool, m *Manager) error {
 	boxDir := filepath.Join(m.RootDir, ".box")
 	binDir := filepath.Join(boxDir, "bin")
@@ -69,6 +73,7 @@ func (i *UvInstaller) Install(tool config.Tool, m *Manager) error {
 // GemInstaller implements the Installer interface for Ruby gems.
 type GemInstaller struct{}
 
+// Install installs a Ruby gem.
 func (i *GemInstaller) Install(tool config.Tool, m *Manager) error {
 	boxDir := filepath.Join(m.RootDir, ".box")
 	binDir := filepath.Join(boxDir, "bin")
@@ -78,6 +83,7 @@ func (i *GemInstaller) Install(tool config.Tool, m *Manager) error {
 // ScriptInstaller implements the Installer interface for shell scripts.
 type ScriptInstaller struct{}
 
+// Install installs a tool by running a shell script.
 func (i *ScriptInstaller) Install(tool config.Tool, m *Manager) error {
 	return m.installScript(tool)
 }

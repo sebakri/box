@@ -18,7 +18,7 @@ var generateCmd = &cobra.Command{
 	Long:      `Generates configuration files for shell integration or containerization (e.g., direnv, dockerfile).`,
 	ValidArgs: []string{"direnv", "dockerfile"},
 	Args:      cobra.MatchAll(cobra.ExactArgs(1), cobra.OnlyValidArgs),
-	Run: func(cmd *cobra.Command, args []string) {
+	Run: func(_ *cobra.Command, args []string) {
 		genType := args[0]
 
 		configFile := "box.yml"

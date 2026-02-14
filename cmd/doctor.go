@@ -1,3 +1,4 @@
+// Package cmd implements the command-line interface for box.
 package cmd
 
 import (
@@ -9,7 +10,7 @@ import (
 var doctorCmd = &cobra.Command{
 	Use:   "doctor",
 	Short: "Checks if the host runtimes are installed",
-	Run: func(cmd *cobra.Command, args []string) {
+	Run: func(_ *cobra.Command, _ []string) {
 		doctor.Run()
 	},
 }

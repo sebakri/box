@@ -1,3 +1,4 @@
+// Package installer provides mechanisms for installing tools from various package managers into the .box directory.
 package installer
 
 import (
@@ -13,6 +14,7 @@ import (
 	"github.com/sebakri/box/internal/config"
 )
 
+// Manager handles tool installations and environment setup.
 type Manager struct {
 	RootDir string
 	Env     map[string]string
@@ -22,14 +24,17 @@ type Manager struct {
 	installers map[string]Installer
 }
 
+// ToolManifest tracks files installed for a specific tool.
 type ToolManifest struct {
 	Files []string
 }
 
+// Manifest represents the persistent state of installed tools.
 type Manifest struct {
 	Tools map[string]ToolManifest
 }
 
+// New creates a new Manager instance.
 func New(rootDir string, env map[string]string) *Manager {
 	m := &Manager{
 		RootDir:    rootDir,
@@ -49,6 +54,7 @@ func New(rootDir string, env map[string]string) *Manager {
 	return m
 }
 
+// RegisterInstaller adds a new installer for a tool type.
 func (m *Manager) RegisterInstaller(toolType string, installer Installer) {
 	m.installers[toolType] = installer
 }
@@ -59,12 +65,13 @@ func (m *Manager) log(format string, a ...any) {
 	}
 }
 
+// Install installs a tool based on its configuration.
 func (m *Manager) Install(tool config.Tool) error {
 	boxDir := filepath.Join(m.RootDir, ".box")
 	binDir := filepath.Join(boxDir, "bin")
 
 	// Ensure directories exist
-	if err := os.MkdirAll(binDir, 0755); err != nil {
+	if err := os.MkdirAll(binDir, 0700); err != nil {
 		return fmt.Errorf("failed to create bin dir: %w", err)
 	}
 
@@ -108,7 +115,7 @@ func (m *Manager) captureState() (map[string]bool, error) {
 		return state, nil
 	}
 
-	err := filepath.Walk(boxDir, func(path string, info os.FileInfo, err error) error {
+	err := filepath.Walk(boxDir, func(path string, _ os.FileInfo, err error) error {
 		if err != nil {
 			return err
 		}
@@ -128,14 +135,14 @@ func (m *Manager) updateManifest(name string, files []string) error {
 	manifestPath := filepath.Join(m.RootDir, ".box", "manifest.bin")
 	manifest := Manifest{Tools: make(map[string]ToolManifest)}
 
-	if file, err := os.Open(manifestPath); err == nil {
+	if file, err := os.Open(filepath.Clean(manifestPath)); err == nil {
 		_ = gob.NewDecoder(file).Decode(&manifest)
 		_ = file.Close()
 	}
 
 	manifest.Tools[name] = ToolManifest{Files: files}
 
-	file, err := os.Create(manifestPath)
+	file, err := os.Create(filepath.Clean(manifestPath))
 	if err != nil {
 		return err
 	}
@@ -144,11 +151,12 @@ func (m *Manager) updateManifest(name string, files []string) error {
 	return gob.NewEncoder(file).Encode(manifest)
 }
 
+// LoadManifest reads the installed tools manifest.
 func (m *Manager) LoadManifest() (*Manifest, error) {
 	manifestPath := filepath.Join(m.RootDir, ".box", "manifest.bin")
 	manifest := Manifest{Tools: make(map[string]ToolManifest)}
 
-	file, err := os.Open(manifestPath)
+	file, err := os.Open(filepath.Clean(manifestPath))
 	if err != nil {
 		if os.IsNotExist(err) {
 			return &manifest, nil
@@ -161,11 +169,12 @@ func (m *Manager) LoadManifest() (*Manifest, error) {
 	return &manifest, err
 }
 
+// Uninstall removes an installed tool and its files.
 func (m *Manager) Uninstall(name string) error {
 	manifestPath := filepath.Join(m.RootDir, ".box", "manifest.bin")
 	manifest := Manifest{Tools: make(map[string]ToolManifest)}
 
-	file, err := os.Open(manifestPath)
+	file, err := os.Open(filepath.Clean(manifestPath))
 	if err != nil {
 		if os.IsNotExist(err) {
 			// Fallback for old installations
@@ -217,7 +226,7 @@ func (m *Manager) Uninstall(name string) error {
 
 	delete(manifest.Tools, name)
 
-	outFile, err := os.Create(manifestPath)
+	outFile, err := os.Create(filepath.Clean(manifestPath))
 	if err != nil {
 		return err
 	}
@@ -266,26 +275,14 @@ func (m *Manager) runGoInstall(tool config.Tool, binDir string) error {
 
 	boxDir := filepath.Join(m.RootDir, ".box")
 	goDir := filepath.Join(boxDir, "go")
-	if err := os.MkdirAll(goDir, 0755); err != nil {
+	if err := os.MkdirAll(goDir, 0700); err != nil {
 		return fmt.Errorf("failed to create go dir: %w", err)
 	}
 
 	// Run go install with a persistent GOPATH in .box/go
 	goBinDir := filepath.Join(goDir, "bin")
 
-	// Filter out GOBIN and GOPATH from existing env to ensure ours take precedence cleanly
-	env := os.Environ()
-	newEnv := []string{}
-	for _, e := range env {
-		if !strings.HasPrefix(e, "GOBIN=") && !strings.HasPrefix(e, "GOPATH=") {
-			newEnv = append(newEnv, e)
-		}
-	}
-
-	newEnv = append(newEnv, fmt.Sprintf("GOPATH=%s", goDir))
-	// Do not set GOBIN, rely on GOPATH/bin to avoid "cross-compiled" errors
-	// newEnv = append(newEnv, fmt.Sprintf("GOBIN=%s", goBinDir))
-
+	newEnv := m.prepareGoEnv(goDir)
 	err := m.runCommand("go", []string{"install", source}, newEnv, "")
 	if err != nil {
 		return err
@@ -293,29 +290,46 @@ func (m *Manager) runGoInstall(tool config.Tool, binDir string) error {
 
 	binaries := tool.Binaries
 	if len(binaries) == 0 {
-		// The binary name is the last part of the source path (before @)
-		// Strip version if present in source for binary name detection
-		sourcePath := source
-		if idx := strings.Index(sourcePath, "@"); idx != -1 {
-			sourcePath = sourcePath[:idx]
-		}
-
-		// Strip major version suffix (e.g. /v2, /v3) if it's the last part of the path
-		// This is common in Go modules.
-		if parts := strings.Split(sourcePath, "/"); len(parts) > 1 {
-			lastPart := parts[len(parts)-1]
-			if len(lastPart) >= 2 && lastPart[0] == 'v' && isDigit(lastPart[1:]) {
-				sourcePath = strings.Join(parts[:len(parts)-1], "/")
-			}
-		}
-
-		binaryName := sourcePath
-		if idx := strings.LastIndex(binaryName, "/"); idx != -1 {
-			binaryName = binaryName[idx+1:]
-		}
-		binaries = []string{binaryName}
+		binaries = []string{m.detectBinaryName(source)}
 	}
 
+	return m.linkBinaries(goBinDir, binDir, binaries)
+}
+
+func (m *Manager) prepareGoEnv(goDir string) []string {
+	env := os.Environ()
+	newEnv := []string{}
+	for _, e := range env {
+		if !strings.HasPrefix(e, "GOBIN=") && !strings.HasPrefix(e, "GOPATH=") {
+			newEnv = append(newEnv, e)
+		}
+	}
+	return append(newEnv, fmt.Sprintf("GOPATH=%s", goDir))
+}
+
+func (m *Manager) detectBinaryName(source string) string {
+	// The binary name is the last part of the source path (before @)
+	sourcePath := source
+	if idx := strings.Index(sourcePath, "@"); idx != -1 {
+		sourcePath = sourcePath[:idx]
+	}
+
+	// Strip major version suffix (e.g. /v2, /v3) if it's the last part of the path
+	if parts := strings.Split(sourcePath, "/"); len(parts) > 1 {
+		lastPart := parts[len(parts)-1]
+		if len(lastPart) >= 2 && lastPart[0] == 'v' && isDigit(lastPart[1:]) {
+			sourcePath = strings.Join(parts[:len(parts)-1], "/")
+		}
+	}
+
+	binaryName := sourcePath
+	if idx := strings.LastIndex(binaryName, "/"); idx != -1 {
+		binaryName = binaryName[idx+1:]
+	}
+	return binaryName
+}
+
+func (m *Manager) linkBinaries(goBinDir, binDir string, binaries []string) error {
 	for _, name := range binaries {
 		srcBinary, err := m.findBinary(goBinDir, name)
 		if err != nil {
@@ -327,10 +341,8 @@ func (m *Manager) runGoInstall(tool config.Tool, binDir string) error {
 			destBinary += ".exe"
 		}
 
-		// Ensure any existing file/link is removed first
 		_ = os.Remove(destBinary)
 
-		// Try symlinking first (relative path is better for portability)
 		relPath, err := filepath.Rel(binDir, srcBinary)
 		if err == nil {
 			m.log("Symlinking %s to %s...", relPath, destBinary)
@@ -342,16 +354,15 @@ func (m *Manager) runGoInstall(tool config.Tool, binDir string) error {
 		}
 
 		m.log("Copying %s to %s...", srcBinary, destBinary)
-		input, err := os.ReadFile(srcBinary)
+		input, err := os.ReadFile(filepath.Clean(srcBinary))
 		if err != nil {
 			return fmt.Errorf("failed to read installed binary %s: %w", srcBinary, err)
 		}
 
-		if err := os.WriteFile(destBinary, input, 0755); err != nil {
+		if err := os.WriteFile(destBinary, input, 0600); err != nil {
 			return fmt.Errorf("failed to copy binary to .box/bin: %w", err)
 		}
 	}
-
 	return nil
 }
 
@@ -383,6 +394,7 @@ func (m *Manager) findBinary(searchDir, name string) (string, error) {
 	return "", fmt.Errorf("could not find installed binary %s in %s", name, searchDir)
 }
 
+// EnsureEnvrc creates or updates the .envrc file.
 func (m *Manager) EnsureEnvrc() error {
 	envrcPath := filepath.Join(m.RootDir, ".envrc")
 	boxDir := filepath.Join(m.RootDir, ".box")
@@ -398,14 +410,17 @@ func (m *Manager) EnsureEnvrc() error {
 	}
 
 	m.log("Updating .envrc...")
-	return os.WriteFile(envrcPath, []byte(content), 0644)
+	return os.WriteFile(filepath.Clean(envrcPath), []byte(content), 0600)
 }
 
+// AllowDirenv runs direnv allow in the project directory.
 func (m *Manager) AllowDirenv() error {
 	m.log("Running direnv allow...")
 	return m.runCommand("direnv", []string{"allow"}, nil, m.RootDir)
 }
 
+// GenerateDockerfile creates a Dockerfile for the project.
+// GenerateDockerfile creates a Dockerfile for the project.
 func (m *Manager) GenerateDockerfile() error {
 	dockerfilePath := filepath.Join(m.RootDir, "Dockerfile")
 	content := `FROM debian:bookworm-slim
@@ -463,7 +478,7 @@ ENV PATH="/home/box/.box/bin:${PATH}"
 CMD ["/bin/bash"]
 `
 	m.log("Generating Dockerfile...")
-	return os.WriteFile(dockerfilePath, []byte(content), 0644)
+	return os.WriteFile(dockerfilePath, []byte(content), 0600)
 }
 
 func (m *Manager) installNpm(tool config.Tool, etcDir string) error {

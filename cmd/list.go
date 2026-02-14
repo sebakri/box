@@ -20,7 +20,7 @@ var listCmd = &cobra.Command{
 
 	Short: "Lists installed tools and their binaries",
 
-	Run: func(cmd *cobra.Command, args []string) {
+	Run: func(_ *cobra.Command, _ []string) {
 
 		configFile := "box.yml"
 

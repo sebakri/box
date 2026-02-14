@@ -15,7 +15,7 @@ import (
 var envCmd = &cobra.Command{
 	Use:   "env [key]",
 	Short: "Display the merged list of environment variables",
-	Run: func(cmd *cobra.Command, args []string) {
+	Run: func(_ *cobra.Command, args []string) {
 		configFile, err := findNearestBoxConfig()
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Warning: Could not find box.yml: %v\n", err)

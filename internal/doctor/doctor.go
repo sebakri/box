@@ -1,3 +1,4 @@
+// Package doctor provides diagnostic tools for verifying the host environment.
 package doctor
 
 import (
@@ -14,6 +15,7 @@ var (
 	dimStyle     = lipgloss.NewStyle().Foreground(lipgloss.Color("241"))
 )
 
+// Run executes a series of checks on the host environment to ensure required tools are present.
 func Run() {
 	fmt.Println(titleStyle.Render("Checking box host environment tools..."))
 

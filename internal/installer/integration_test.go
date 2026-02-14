@@ -26,7 +26,7 @@ func TestIntegrationInstallation(t *testing.T) {
 
 	boxBin := filepath.Join(t.TempDir(), "box")
 
-	buildCmd := exec.Command("go", "build", "-o", boxBin, "../../main.go")
+	buildCmd := exec.Command("go", "build", "-o", filepath.Clean(boxBin), "../../main.go")
 
 	if output, err := buildCmd.CombinedOutput(); err != nil {
 
@@ -46,11 +46,11 @@ func TestIntegrationInstallation(t *testing.T) {
 
 	t.Cleanup(func() {
 
-		_ = filepath.Walk(projectDir, func(path string, info os.FileInfo, err error) error {
+		_ = filepath.Walk(projectDir, func(path string, _ os.FileInfo, err error) error {
 
 			if err == nil {
 
-				_ = os.Chmod(path, 0777)
+				_ = os.Chmod(path, 0700)
 
 			}
 
@@ -68,7 +68,7 @@ func TestIntegrationInstallation(t *testing.T) {
 
 	configPath := filepath.Join(projectDir, "box.yml")
 
-	if err := os.WriteFile(configPath, configSource, 0644); err != nil {
+	if err := os.WriteFile(configPath, configSource, 0600); err != nil {
 
 		t.Fatalf("Failed to write box.yml: %v", err)
 
@@ -76,7 +76,7 @@ func TestIntegrationInstallation(t *testing.T) {
 
 	// Run box install
 
-	installCmd := exec.Command(boxBin, "install", "--non-interactive")
+	installCmd := exec.Command(filepath.Clean(boxBin), "install", "--non-interactive")
 
 	installCmd.Dir = projectDir
 
@@ -132,7 +132,7 @@ func TestIntegrationInstallation(t *testing.T) {
 
 			if binaryName == "task" && tool.Version != "" {
 
-				versionCmd := exec.Command(binPath, "--version")
+				versionCmd := exec.Command(filepath.Clean(binPath), "--version")
 
 				output, err := versionCmd.CombinedOutput()
 

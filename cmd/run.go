@@ -18,7 +18,7 @@ var runCmd = &cobra.Command{
 	Short:              "Execute a binary from the local .box/bin directory",
 	DisableFlagParsing: true,
 	Args:               cobra.MinimumNArgs(1),
-	Run: func(cmd *cobra.Command, args []string) {
+	Run: func(_ *cobra.Command, args []string) {
 		commandName := args[0]
 		if commandName != filepath.Base(commandName) {
 			log.Fatalf("Invalid command name %q: path separators are not allowed", commandName)
@@ -46,7 +46,7 @@ var runCmd = &cobra.Command{
 			log.Fatalf("Binary %s not found in .box/bin. Have you run 'box install'?", commandName)
 		}
 
-		execCmd := exec.Command(binaryPath, commandArgs...)
+		execCmd := exec.Command(filepath.Clean(binaryPath), commandArgs...)
 		execCmd.Stdin = os.Stdin
 		execCmd.Stdout = os.Stdout
 		execCmd.Stderr = os.Stderr

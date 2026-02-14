@@ -185,7 +185,7 @@ var (
 var installCmd = &cobra.Command{
 	Use:   "install",
 	Short: "Installs tools defined in box.yml",
-	Run: func(cmd *cobra.Command, args []string) {
+	Run: func(_ *cobra.Command, _ []string) {
 		if _, err := os.Stat(configFile); os.IsNotExist(err) {
 			log.Fatalf("Configuration file %s not found.", configFile)
 		}
