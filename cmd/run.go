@@ -46,11 +46,21 @@ var runCmd = &cobra.Command{
 			log.Fatalf("Binary %s not found in .box/bin. Have you run 'box install'?", commandName)
 		}
 
+		finalCmdName := binaryPath
+		finalCmdArgs := commandArgs
+		tempCmd := exec.Command(binaryPath, commandArgs...)
+
+		if cfg.Sandbox {
+			finalCmdName, finalCmdArgs = applySandbox(tempCmd, binaryPath, commandArgs, cwd)
+		}
+
 		//nolint:gosec
-		execCmd := exec.Command(filepath.Clean(binaryPath), commandArgs...)
+		execCmd := exec.Command(finalCmdName, finalCmdArgs...)
 		execCmd.Stdin = os.Stdin
 		execCmd.Stdout = os.Stdout
 		execCmd.Stderr = os.Stderr
+		execCmd.SysProcAttr = tempCmd.SysProcAttr
+
 
 		// Ensure .box/bin is in the PATH for the executed command and add custom env vars
 		env := os.Environ()
@@ -82,6 +92,7 @@ var runCmd = &cobra.Command{
 		}
 	},
 }
+
 
 func init() {
 	rootCmd.AddCommand(runCmd)

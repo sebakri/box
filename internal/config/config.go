@@ -50,7 +50,9 @@ type Tool struct {
 	Version  string   `yaml:"version,omitempty"`  // Optional version (e.g., "latest", "0.1.0")
 	Binaries []string `yaml:"binaries,omitempty"` // Optional explicit list of binaries
 	Args     []string `yaml:"args,omitempty"`
+	Sandbox  bool     `yaml:"sandbox,omitempty"`  // Whether to run in a sandbox
 }
+
 
 // DisplayName returns a human-readable name for the tool.
 func (t Tool) DisplayName() string {
@@ -62,9 +64,11 @@ func (t Tool) DisplayName() string {
 
 // Config represents the top-level box configuration.
 type Config struct {
-	Tools []Tool            `yaml:"tools"`
-	Env   map[string]string `yaml:"env,omitempty"`
+	Tools   []Tool            `yaml:"tools"`
+	Env     map[string]string `yaml:"env,omitempty"`
+	Sandbox bool              `yaml:"sandbox,omitempty"` // Global sandbox setting
 }
+
 
 // Load loads the configuration from the given path.
 func Load(path string) (*Config, error) {

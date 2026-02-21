@@ -273,7 +273,7 @@ func (m *Manager) runGoInstall(tool config.Tool, binDir string) error {
 	goBinDir := filepath.Join(goDir, "bin")
 
 	newEnv := m.prepareGoEnv(goDir)
-	err := m.runCommand("go", []string{"install", source}, newEnv, "")
+	err := m.runCommand("go", []string{"install", source}, newEnv, "", tool.Sandbox)
 	if err != nil {
 		return err
 	}
@@ -423,8 +423,9 @@ func shellEscape(s string) string {
 // AllowDirenv runs direnv allow in the project directory.
 func (m *Manager) AllowDirenv() error {
 	m.log("Running direnv allow...")
-	return m.runCommand("direnv", []string{"allow"}, nil, m.RootDir)
+	return m.runCommand("direnv", []string{"allow"}, nil, m.RootDir, false)
 }
+
 
 // GenerateDockerfile creates a Dockerfile for the project.
 // GenerateDockerfile creates a Dockerfile for the project.
@@ -500,7 +501,7 @@ func (m *Manager) installNpm(tool config.Tool, binDir string) error {
 	npmBinDir := filepath.Join(npmDir, "bin")
 
 	// npm install --prefix .box/npm -g <package>
-	if err := m.runCommand("npm", []string{"install", "--prefix", npmDir, "-g", source}, nil, ""); err != nil {
+	if err := m.runCommand("npm", []string{"install", "--prefix", npmDir, "-g", source}, nil, "", tool.Sandbox); err != nil {
 		return err
 	}
 
@@ -528,7 +529,7 @@ func (m *Manager) installCargo(tool config.Tool, binDir string) error {
 	args = append(args, tool.Args...)
 	args = append(args, source)
 
-	if err := m.runCommand("cargo-binstall", args, nil, ""); err != nil {
+	if err := m.runCommand("cargo-binstall", args, nil, "", tool.Sandbox); err != nil {
 		return err
 	}
 
@@ -561,7 +562,7 @@ func (m *Manager) installUv(tool config.Tool, binDir string) error {
 	env = append(env, fmt.Sprintf("UV_TOOL_BIN_DIR=%s", uvBinDir))
 	env = append(env, fmt.Sprintf("UV_TOOL_DIR=%s", uvDir))
 
-	if err := m.runCommand("uv", args, env, ""); err != nil {
+	if err := m.runCommand("uv", args, env, "", tool.Sandbox); err != nil {
 		return err
 	}
 
@@ -588,7 +589,7 @@ func (m *Manager) installGem(tool config.Tool, binDir string) error {
 	args = append(args, tool.Args...)
 	args = append(args, tool.Source.String())
 
-	if err := m.runCommand("gem", args, nil, ""); err != nil {
+	if err := m.runCommand("gem", args, nil, "", tool.Sandbox); err != nil {
 		return err
 	}
 
@@ -618,7 +619,7 @@ func (m *Manager) installScript(tool config.Tool) error {
 		env = append(env, fmt.Sprintf("%s=%s", k, v))
 	}
 
-	if err := m.runCommand("sh", []string{"-c", tool.Source.String()}, env, m.RootDir); err != nil {
+	if err := m.runCommand("sh", []string{"-c", tool.Source.String()}, env, m.RootDir, tool.Sandbox); err != nil {
 		return err
 	}
 

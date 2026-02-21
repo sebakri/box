@@ -32,8 +32,19 @@ var SupportedTools = map[string]ToolType{
 }
 
 // runCommand is a helper to run shell commands with consistent output redirection and environment setup.
-func (m *Manager) runCommand(name string, args []string, env []string, dir string) error {
-	cmd := exec.Command(name, args...)
+func (m *Manager) runCommand(name string, args []string, env []string, dir string, sandbox bool) error {
+	cmdName := name
+	cmdArgs := args
+
+	// We create a dummy command just to pass to applySandbox which might modify its SysProcAttr
+	tempCmd := exec.Command(name, args...)
+
+	if sandbox {
+		cmdName, cmdArgs = applySandbox(tempCmd, name, args, m.RootDir)
+	}
+
+	cmd := exec.Command(cmdName, cmdArgs...)
+	cmd.SysProcAttr = tempCmd.SysProcAttr // Transfer modified SysProcAttr
 	if dir != "" {
 		cmd.Dir = dir
 	}
@@ -44,9 +55,11 @@ func (m *Manager) runCommand(name string, args []string, env []string, dir strin
 		cmd.Env = append(os.Environ(), env...)
 	}
 
-	m.log("Running: %s %s", name, strings.Join(args, " "))
+	m.log("Running: %s %s", cmdName, strings.Join(cmdArgs, " "))
 	return cmd.Run()
 }
+
+
 
 // GoInstaller implements the Installer interface for Go tools.
 type GoInstaller struct{}
