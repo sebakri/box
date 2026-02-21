@@ -41,7 +41,7 @@ var listCmd = &cobra.Command{
 
 		}
 
-		mgr := installer.New(cwd, cfg.Env)
+		mgr := installer.New(cwd, cfg.Env, cfg)
 
 		manifest, err := mgr.LoadManifest()
 

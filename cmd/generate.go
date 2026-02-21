@@ -33,7 +33,7 @@ var generateCmd = &cobra.Command{
 			log.Fatalf("Failed to get current working directory: %v", err)
 		}
 
-		mgr := installer.New(cwd, cfg.Env)
+		mgr := installer.New(cwd, cfg.Env, cfg)
 		mgr.Output = io.Discard
 
 		switch genType {

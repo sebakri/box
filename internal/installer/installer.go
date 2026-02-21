@@ -16,9 +16,10 @@ import (
 
 // Manager handles tool installations and environment setup.
 type Manager struct {
-	RootDir string
-	Env     map[string]string
-	Output  io.Writer
+	RootDir      string
+	Env          map[string]string
+	Output       io.Writer
+	GlobalConfig *config.Config
 
 	// installers map tool types to their implementation
 	installers map[string]Installer
@@ -35,12 +36,13 @@ type Manifest struct {
 }
 
 // New creates a new Manager instance.
-func New(rootDir string, env map[string]string) *Manager {
+func New(rootDir string, env map[string]string, cfg *config.Config) *Manager {
 	m := &Manager{
-		RootDir:    rootDir,
-		Env:        env,
-		Output:     os.Stdout,
-		installers: make(map[string]Installer),
+		RootDir:      rootDir,
+		Env:          env,
+		Output:       os.Stdout,
+		GlobalConfig: cfg,
+		installers:   make(map[string]Installer),
 	}
 
 	// Register default installers from central registry
@@ -50,6 +52,7 @@ func New(rootDir string, env map[string]string) *Manager {
 
 	return m
 }
+
 
 
 // RegisterInstaller adds a new installer for a tool type.
@@ -84,7 +87,10 @@ func (m *Manager) Install(tool config.Tool) error {
 		return fmt.Errorf("unsupported tool type: %s", tool.Type)
 	}
 
-	if err := installer.Install(tool, m); err != nil {
+	// Determine if sandbox is enabled for this specific tool
+	sandboxEnabled := tool.IsSandboxEnabled(m.GlobalConfig)
+
+	if err := installer.Install(tool, m, sandboxEnabled); err != nil {
 		return err
 	}
 
@@ -243,10 +249,10 @@ func (m *Manager) uninstallBestEffort(name string) error {
 	return nil
 }
 
-func (m *Manager) installGo(tool config.Tool, binDir string) error {
+func (m *Manager) installGo(tool config.Tool, binDir string, sandbox bool) error {
 	m.log("Installing %s (go)...", tool.DisplayName())
 
-	err := m.runGoInstall(tool, binDir)
+	err := m.runGoInstall(tool, binDir, sandbox)
 	if err != nil {
 		if tool.Version != "" && !strings.HasPrefix(tool.Version, "v") && len(tool.Version) > 0 && tool.Version[0] >= '0' && tool.Version[0] <= '9' {
 			m.log("Hint: Go tools often require a 'v' prefix for versions (e.g., v%s instead of %s)", tool.Version, tool.Version)
@@ -257,7 +263,7 @@ func (m *Manager) installGo(tool config.Tool, binDir string) error {
 	return nil
 }
 
-func (m *Manager) runGoInstall(tool config.Tool, binDir string) error {
+func (m *Manager) runGoInstall(tool config.Tool, binDir string, sandbox bool) error {
 	source := tool.Source.String()
 	if tool.Version != "" {
 		source = fmt.Sprintf("%s@%s", source, tool.Version)
@@ -273,7 +279,7 @@ func (m *Manager) runGoInstall(tool config.Tool, binDir string) error {
 	goBinDir := filepath.Join(goDir, "bin")
 
 	newEnv := m.prepareGoEnv(goDir)
-	err := m.runCommand("go", []string{"install", source}, newEnv, "", tool.Sandbox)
+	err := m.runCommand("go", []string{"install", source}, newEnv, "", sandbox)
 	if err != nil {
 		return err
 	}
@@ -489,7 +495,7 @@ CMD ["/bin/bash"]
 	return os.WriteFile(dockerfilePath, []byte(content), 0600)
 }
 
-func (m *Manager) installNpm(tool config.Tool, binDir string) error {
+func (m *Manager) installNpm(tool config.Tool, binDir string, sandbox bool) error {
 	source := tool.Source.String()
 	if tool.Version != "" {
 		source = fmt.Sprintf("%s@%s", source, tool.Version)
@@ -501,7 +507,7 @@ func (m *Manager) installNpm(tool config.Tool, binDir string) error {
 	npmBinDir := filepath.Join(npmDir, "bin")
 
 	// npm install --prefix .box/npm -g <package>
-	if err := m.runCommand("npm", []string{"install", "--prefix", npmDir, "-g", source}, nil, "", tool.Sandbox); err != nil {
+	if err := m.runCommand("npm", []string{"install", "--prefix", npmDir, "-g", source}, nil, "", sandbox); err != nil {
 		return err
 	}
 
@@ -513,7 +519,7 @@ func (m *Manager) installNpm(tool config.Tool, binDir string) error {
 	return m.linkBinaries(npmBinDir, binDir, binaries)
 }
 
-func (m *Manager) installCargo(tool config.Tool, binDir string) error {
+func (m *Manager) installCargo(tool config.Tool, binDir string, sandbox bool) error {
 	source := tool.Source.String()
 	if tool.Version != "" {
 		source = fmt.Sprintf("%s@%s", source, tool.Version)
@@ -529,7 +535,7 @@ func (m *Manager) installCargo(tool config.Tool, binDir string) error {
 	args = append(args, tool.Args...)
 	args = append(args, source)
 
-	if err := m.runCommand("cargo-binstall", args, nil, "", tool.Sandbox); err != nil {
+	if err := m.runCommand("cargo-binstall", args, nil, "", sandbox); err != nil {
 		return err
 	}
 
@@ -541,7 +547,7 @@ func (m *Manager) installCargo(tool config.Tool, binDir string) error {
 	return m.linkBinaries(cargoBinDir, binDir, binaries)
 }
 
-func (m *Manager) installUv(tool config.Tool, binDir string) error {
+func (m *Manager) installUv(tool config.Tool, binDir string, sandbox bool) error {
 	source := tool.Source.String()
 	if tool.Version != "" {
 		source = fmt.Sprintf("%s==%s", source, tool.Version)
@@ -562,7 +568,7 @@ func (m *Manager) installUv(tool config.Tool, binDir string) error {
 	env = append(env, fmt.Sprintf("UV_TOOL_BIN_DIR=%s", uvBinDir))
 	env = append(env, fmt.Sprintf("UV_TOOL_DIR=%s", uvDir))
 
-	if err := m.runCommand("uv", args, env, "", tool.Sandbox); err != nil {
+	if err := m.runCommand("uv", args, env, "", sandbox); err != nil {
 		return err
 	}
 
@@ -574,7 +580,7 @@ func (m *Manager) installUv(tool config.Tool, binDir string) error {
 	return m.linkBinaries(uvBinDir, binDir, binaries)
 }
 
-func (m *Manager) installGem(tool config.Tool, binDir string) error {
+func (m *Manager) installGem(tool config.Tool, binDir string, sandbox bool) error {
 	m.log("Installing %s %s (gem)...", tool.DisplayName(), tool.Version)
 
 	boxDir := filepath.Join(m.RootDir, ".box")
@@ -589,7 +595,7 @@ func (m *Manager) installGem(tool config.Tool, binDir string) error {
 	args = append(args, tool.Args...)
 	args = append(args, tool.Source.String())
 
-	if err := m.runCommand("gem", args, nil, "", tool.Sandbox); err != nil {
+	if err := m.runCommand("gem", args, nil, "", sandbox); err != nil {
 		return err
 	}
 
@@ -601,7 +607,7 @@ func (m *Manager) installGem(tool config.Tool, binDir string) error {
 	return m.linkBinaries(gemBinDir, binDir, binaries)
 }
 
-func (m *Manager) installScript(tool config.Tool) error {
+func (m *Manager) installScript(tool config.Tool, sandbox bool) error {
 	m.log("Installing via script: %s", tool.DisplayName())
 
 	boxDir := filepath.Join(m.RootDir, ".box")
@@ -619,7 +625,7 @@ func (m *Manager) installScript(tool config.Tool) error {
 		env = append(env, fmt.Sprintf("%s=%s", k, v))
 	}
 
-	if err := m.runCommand("sh", []string{"-c", tool.Source.String()}, env, m.RootDir, tool.Sandbox); err != nil {
+	if err := m.runCommand("sh", []string{"-c", tool.Source.String()}, env, m.RootDir, sandbox); err != nil {
 		return err
 	}
 

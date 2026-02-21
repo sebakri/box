@@ -42,6 +42,15 @@ func (s Source) String() string {
 	return strings.Join(s, "\n")
 }
 
+// IsGlobalSandboxEnabled returns true if global sandboxing is enabled.
+// It defaults to true if not specified.
+func (c Config) IsGlobalSandboxEnabled() bool {
+	if c.Sandbox != nil {
+		return *c.Sandbox
+	}
+	return true // Default to true
+}
+
 // Tool defines a single tool to be installed by box.
 type Tool struct {
 	Type     string   `yaml:"type"`               // "go", "npm", "cargo", "uv", "gem", "script"
@@ -50,9 +59,20 @@ type Tool struct {
 	Version  string   `yaml:"version,omitempty"`  // Optional version (e.g., "latest", "0.1.0")
 	Binaries []string `yaml:"binaries,omitempty"` // Optional explicit list of binaries
 	Args     []string `yaml:"args,omitempty"`
-	Sandbox  bool     `yaml:"sandbox,omitempty"`  // Whether to run in a sandbox
+	Sandbox  *bool    `yaml:"sandbox,omitempty"`  // Whether to run in a sandbox
 }
 
+// IsSandboxEnabled returns true if sandboxing is enabled for this tool.
+// It defaults to true if not specified in the tool or globally.
+func (t Tool) IsSandboxEnabled(globalConfig *Config) bool {
+	if t.Sandbox != nil {
+		return *t.Sandbox
+	}
+	if globalConfig != nil && globalConfig.Sandbox != nil {
+		return *globalConfig.Sandbox
+	}
+	return true // Default to true
+}
 
 // DisplayName returns a human-readable name for the tool.
 func (t Tool) DisplayName() string {
@@ -66,8 +86,9 @@ func (t Tool) DisplayName() string {
 type Config struct {
 	Tools   []Tool            `yaml:"tools"`
 	Env     map[string]string `yaml:"env,omitempty"`
-	Sandbox bool              `yaml:"sandbox,omitempty"` // Global sandbox setting
+	Sandbox *bool             `yaml:"sandbox,omitempty"` // Global sandbox setting
 }
+
 
 
 // Load loads the configuration from the given path.

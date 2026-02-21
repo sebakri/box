@@ -12,7 +12,7 @@ import (
 // Installer is the interface that all tool installers must implement.
 type Installer interface {
 	// Install installs the tool.
-	Install(tool config.Tool, m *Manager) error
+	Install(tool config.Tool, m *Manager, sandbox bool) error
 }
 
 // ToolType represents a supported tool runtime.
@@ -59,62 +59,61 @@ func (m *Manager) runCommand(name string, args []string, env []string, dir strin
 	return cmd.Run()
 }
 
-
-
 // GoInstaller implements the Installer interface for Go tools.
 type GoInstaller struct{}
 
 // Install installs a Go tool using 'go install'.
-func (i *GoInstaller) Install(tool config.Tool, m *Manager) error {
+func (i *GoInstaller) Install(tool config.Tool, m *Manager, sandbox bool) error {
 	boxDir := filepath.Join(m.RootDir, ".box")
 	binDir := filepath.Join(boxDir, "bin")
-	return m.installGo(tool, binDir)
+	return m.installGo(tool, binDir, sandbox)
 }
 
 // NpmInstaller implements the Installer interface for NPM packages.
 type NpmInstaller struct{}
 
 // Install installs an NPM package.
-func (i *NpmInstaller) Install(tool config.Tool, m *Manager) error {
+func (i *NpmInstaller) Install(tool config.Tool, m *Manager, sandbox bool) error {
 	boxDir := filepath.Join(m.RootDir, ".box")
 	binDir := filepath.Join(boxDir, "bin")
-	return m.installNpm(tool, binDir)
+	return m.installNpm(tool, binDir, sandbox)
 }
 
 // CargoInstaller implements the Installer interface for Cargo crates.
 type CargoInstaller struct{}
 
 // Install installs a Cargo crate using 'cargo-binstall'.
-func (i *CargoInstaller) Install(tool config.Tool, m *Manager) error {
+func (i *CargoInstaller) Install(tool config.Tool, m *Manager, sandbox bool) error {
 	boxDir := filepath.Join(m.RootDir, ".box")
 	binDir := filepath.Join(boxDir, "bin")
-	return m.installCargo(tool, binDir)
+	return m.installCargo(tool, binDir, sandbox)
 }
 
 // UvInstaller implements the Installer interface for Python tools via uv.
 type UvInstaller struct{}
 
 // Install installs a Python tool using 'uv tool install'.
-func (i *UvInstaller) Install(tool config.Tool, m *Manager) error {
+func (i *UvInstaller) Install(tool config.Tool, m *Manager, sandbox bool) error {
 	boxDir := filepath.Join(m.RootDir, ".box")
 	binDir := filepath.Join(boxDir, "bin")
-	return m.installUv(tool, binDir)
+	return m.installUv(tool, binDir, sandbox)
 }
 
 // GemInstaller implements the Installer interface for Ruby gems.
 type GemInstaller struct{}
 
 // Install installs a Ruby gem.
-func (i *GemInstaller) Install(tool config.Tool, m *Manager) error {
+func (i *GemInstaller) Install(tool config.Tool, m *Manager, sandbox bool) error {
 	boxDir := filepath.Join(m.RootDir, ".box")
 	binDir := filepath.Join(boxDir, "bin")
-	return m.installGem(tool, binDir)
+	return m.installGem(tool, binDir, sandbox)
 }
 
 // ScriptInstaller implements the Installer interface for shell scripts.
 type ScriptInstaller struct{}
 
 // Install installs a tool by running a shell script.
-func (i *ScriptInstaller) Install(tool config.Tool, m *Manager) error {
-	return m.installScript(tool)
+func (i *ScriptInstaller) Install(tool config.Tool, m *Manager, sandbox bool) error {
+	return m.installScript(tool, sandbox)
 }
+
