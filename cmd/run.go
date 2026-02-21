@@ -50,7 +50,7 @@ var runCmd = &cobra.Command{
 		finalCmdArgs := commandArgs
 		tempCmd := exec.Command(binaryPath, commandArgs...)
 
-		if cfg.IsGlobalSandboxEnabled() {
+		if cfg.IsSandboxEnabled(commandName) {
 			finalCmdName, finalCmdArgs = applySandbox(tempCmd, binaryPath, commandArgs, cwd)
 		}
 

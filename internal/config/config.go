@@ -43,12 +43,23 @@ func (s Source) String() string {
 }
 
 // IsGlobalSandboxEnabled returns true if global sandboxing is enabled.
-// It defaults to true if not specified.
+// It defaults to false.
 func (c Config) IsGlobalSandboxEnabled() bool {
 	if c.Sandbox != nil {
 		return *c.Sandbox
 	}
-	return true // Default to true
+	return false
+}
+
+// IsSandboxEnabled returns true if sandboxing should be used for this binary.
+func (c *Config) IsSandboxEnabled(binaryName string) bool {
+	if c.IsGlobalSandboxEnabled() {
+		return true
+	}
+	if t := c.FindToolForBinary(binaryName); t != nil {
+		return t.IsSandboxEnabled(c)
+	}
+	return false
 }
 
 // Tool defines a single tool to be installed by box.
@@ -63,7 +74,7 @@ type Tool struct {
 }
 
 // IsSandboxEnabled returns true if sandboxing is enabled for this tool.
-// It defaults to true if not specified in the tool or globally.
+// It defaults to true for 'script' type, and false for others.
 func (t Tool) IsSandboxEnabled(globalConfig *Config) bool {
 	if t.Sandbox != nil {
 		return *t.Sandbox
@@ -71,8 +82,67 @@ func (t Tool) IsSandboxEnabled(globalConfig *Config) bool {
 	if globalConfig != nil && globalConfig.Sandbox != nil {
 		return *globalConfig.Sandbox
 	}
-	return true // Default to true
+	return t.Type == "script"
 }
+
+// FindToolForBinary looks up which tool definition produces the given binary name.
+func (c *Config) FindToolForBinary(binaryName string) *Tool {
+	for i := range c.Tools {
+		t := &c.Tools[i]
+		// Check explicit binaries
+		for _, b := range t.Binaries {
+			if b == binaryName {
+				return t
+			}
+		}
+		// If no explicit binaries, try to match the source-based name
+		if len(t.Binaries) == 0 {
+			if t.detectBinaryName() == binaryName {
+				return t
+			}
+		}
+	}
+	return nil
+}
+
+func (t Tool) detectBinaryName() string {
+	source := t.Source.String()
+	// The binary name is the last part of the source path (before @ or ==)
+	sourcePath := source
+	if idx := strings.Index(sourcePath, "@"); idx != -1 {
+		sourcePath = sourcePath[:idx]
+	}
+	if idx := strings.Index(sourcePath, "=="); idx != -1 {
+		sourcePath = sourcePath[:idx]
+	}
+
+	// Strip major version suffix (e.g. /v2, /v3) if it's the last part of the path
+	if parts := strings.Split(sourcePath, "/"); len(parts) > 1 {
+		lastPart := parts[len(parts)-1]
+		if len(lastPart) >= 2 && lastPart[0] == 'v' && isDigit(lastPart[1:]) {
+			sourcePath = strings.Join(parts[:len(parts)-1], "/")
+		}
+	}
+
+	binaryName := sourcePath
+	if idx := strings.LastIndex(binaryName, "/"); idx != -1 {
+		binaryName = binaryName[idx+1:]
+	}
+	return binaryName
+}
+
+func isDigit(s string) bool {
+	if s == "" {
+		return false
+	}
+	for _, r := range s {
+		if r < '0' || r > '9' {
+			return false
+		}
+	}
+	return true
+}
+
 
 // DisplayName returns a human-readable name for the tool.
 func (t Tool) DisplayName() string {

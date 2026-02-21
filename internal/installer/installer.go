@@ -279,7 +279,7 @@ func (m *Manager) runGoInstall(tool config.Tool, binDir string, sandbox bool) er
 	goBinDir := filepath.Join(goDir, "bin")
 
 	newEnv := m.prepareGoEnv(goDir)
-	err := m.runCommand("go", []string{"install", source}, newEnv, "", sandbox)
+	err := m.runCommand("go", []string{"install", source}, newEnv, "", false)
 	if err != nil {
 		return err
 	}
@@ -507,7 +507,7 @@ func (m *Manager) installNpm(tool config.Tool, binDir string, sandbox bool) erro
 	npmBinDir := filepath.Join(npmDir, "bin")
 
 	// npm install --prefix .box/npm -g <package>
-	if err := m.runCommand("npm", []string{"install", "--prefix", npmDir, "-g", source}, nil, "", sandbox); err != nil {
+	if err := m.runCommand("npm", []string{"install", "--prefix", npmDir, "-g", source}, nil, "", false); err != nil {
 		return err
 	}
 
@@ -535,7 +535,7 @@ func (m *Manager) installCargo(tool config.Tool, binDir string, sandbox bool) er
 	args = append(args, tool.Args...)
 	args = append(args, source)
 
-	if err := m.runCommand("cargo-binstall", args, nil, "", sandbox); err != nil {
+	if err := m.runCommand("cargo-binstall", args, nil, "", false); err != nil {
 		return err
 	}
 
@@ -568,7 +568,7 @@ func (m *Manager) installUv(tool config.Tool, binDir string, sandbox bool) error
 	env = append(env, fmt.Sprintf("UV_TOOL_BIN_DIR=%s", uvBinDir))
 	env = append(env, fmt.Sprintf("UV_TOOL_DIR=%s", uvDir))
 
-	if err := m.runCommand("uv", args, env, "", sandbox); err != nil {
+	if err := m.runCommand("uv", args, env, "", false); err != nil {
 		return err
 	}
 
@@ -595,7 +595,7 @@ func (m *Manager) installGem(tool config.Tool, binDir string, sandbox bool) erro
 	args = append(args, tool.Args...)
 	args = append(args, tool.Source.String())
 
-	if err := m.runCommand("gem", args, nil, "", sandbox); err != nil {
+	if err := m.runCommand("gem", args, nil, "", false); err != nil {
 		return err
 	}
 
