@@ -90,7 +90,8 @@ func (m *Manager) Install(tool config.Tool) error {
 	// Determine if sandbox is enabled for this tool (always true for scripts)
 	sandboxEnabled := tool.IsSandboxEnabled()
 
-	if err := installer.Install(tool, m, sandboxEnabled); err != nil {
+	managedFiles, err := installer.Install(tool, m, sandboxEnabled)
+	if err != nil {
 		return err
 	}
 
@@ -100,15 +101,23 @@ func (m *Manager) Install(tool config.Tool) error {
 		return fmt.Errorf("failed to capture state after install: %w", err)
 	}
 
-	newFiles := []string{}
+	newFilesMap := make(map[string]bool)
+	for _, f := range managedFiles {
+		newFilesMap[f] = true
+	}
 	for path := range after {
 		if _, ok := before[path]; !ok {
-			newFiles = append(newFiles, path)
+			newFilesMap[path] = true
 		}
 	}
-	sort.Strings(newFiles)
 
-	return m.updateManifest(tool.Source.String(), newFiles)
+	newFileList := make([]string, 0, len(newFilesMap))
+	for f := range newFilesMap {
+		newFileList = append(newFileList, f)
+	}
+	sort.Strings(newFileList)
+
+	return m.updateManifest(tool, newFileList)
 }
 
 func (m *Manager) captureState() (map[string]bool, error) {
@@ -128,6 +137,10 @@ func (m *Manager) captureState() (map[string]bool, error) {
 		if err != nil {
 			return err
 		}
+		// Skip the .box directory itself and the manifest file
+		if rel == ".box" || rel == filepath.Join(".box", "manifest.json") {
+			return nil
+		}
 		state[rel] = true
 		return nil
 	})
@@ -135,12 +148,31 @@ func (m *Manager) captureState() (map[string]bool, error) {
 	return state, err
 }
 
-func (m *Manager) updateManifest(name string, files []string) error {
+func (m *Manager) updateManifest(tool config.Tool, files []string) error {
 	manifestPath := filepath.Join(m.RootDir, ".box", "manifest.json")
 	manifest := Manifest{Tools: make(map[string]ToolManifest)}
 
 	if data, err := os.ReadFile(filepath.Clean(manifestPath)); err == nil {
 		_ = json.Unmarshal(data, &manifest)
+	}
+
+	name := tool.DisplayName()
+	existing, ok := manifest.Tools[name]
+	if ok {
+		// Merge and deduplicate files
+		fileMap := make(map[string]bool)
+		for _, f := range existing.Files {
+			fileMap[f] = true
+		}
+		for _, f := range files {
+			fileMap[f] = true
+		}
+		newFileList := make([]string, 0, len(fileMap))
+		for f := range fileMap {
+			newFileList = append(newFileList, f)
+		}
+		sort.Strings(newFileList)
+		files = newFileList
 	}
 
 	manifest.Tools[name] = ToolManifest{Files: files}
@@ -242,16 +274,16 @@ func (m *Manager) uninstallBestEffort(name string) error {
 	return nil
 }
 
-func (m *Manager) installGo(tool config.Tool, binDir string, sandbox bool) error {
+func (m *Manager) installGo(tool config.Tool, binDir string, sandbox bool) ([]string, error) {
 	if tool.Version != "" && !strings.HasPrefix(tool.Version, "v") && len(tool.Version) > 0 && tool.Version[0] >= '0' && tool.Version[0] <= '9' {
-		return fmt.Errorf("go tools require a 'v' prefix for versions (e.g., v%s instead of %s)", tool.Version, tool.Version)
+		return nil, fmt.Errorf("go tools require a 'v' prefix for versions (e.g., v%s instead of %s)", tool.Version, tool.Version)
 	}
 
 	m.log("Installing %s (go)...", tool.DisplayName())
 	return m.runGoInstall(tool, binDir, sandbox)
 }
 
-func (m *Manager) runGoInstall(tool config.Tool, binDir string, _ bool) error {
+func (m *Manager) runGoInstall(tool config.Tool, binDir string, _ bool) ([]string, error) {
 	source := tool.Source.String()
 	if tool.Version != "" {
 		source = fmt.Sprintf("%s@%s", source, tool.Version)
@@ -260,7 +292,7 @@ func (m *Manager) runGoInstall(tool config.Tool, binDir string, _ bool) error {
 	boxDir := filepath.Join(m.RootDir, ".box")
 	goDir := filepath.Join(boxDir, "go")
 	if err := os.MkdirAll(goDir, 0700); err != nil {
-		return fmt.Errorf("failed to create go dir: %w", err)
+		return nil, fmt.Errorf("failed to create go dir: %w", err)
 	}
 
 	// Run go install with a persistent GOPATH in .box/go
@@ -269,7 +301,7 @@ func (m *Manager) runGoInstall(tool config.Tool, binDir string, _ bool) error {
 	newEnv := m.prepareGoEnv(goDir)
 	err := m.runCommand("go", []string{"install", source}, newEnv, "", false)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	binaries := tool.Binaries
@@ -316,11 +348,12 @@ func (m *Manager) detectBinaryName(source string) string {
 	return binaryName
 }
 
-func (m *Manager) linkBinaries(goBinDir, binDir string, binaries []string) error {
+func (m *Manager) linkBinaries(goBinDir, binDir string, binaries []string) ([]string, error) {
+	createdFiles := []string{}
 	for _, name := range binaries {
 		srcBinary, err := m.findBinary(goBinDir, name)
 		if err != nil {
-			return err
+			return nil, err
 		}
 
 		destBinary := filepath.Join(binDir, name)
@@ -335,6 +368,8 @@ func (m *Manager) linkBinaries(goBinDir, binDir string, binaries []string) error
 			m.log("Symlinking %s to %s...", relPath, destBinary)
 			err = os.Symlink(relPath, destBinary)
 			if err == nil {
+				relToRoot, _ := filepath.Rel(m.RootDir, destBinary)
+				createdFiles = append(createdFiles, relToRoot)
 				continue
 			}
 			m.log("Symlink failed, falling back to copy: %v", err)
@@ -343,14 +378,16 @@ func (m *Manager) linkBinaries(goBinDir, binDir string, binaries []string) error
 		m.log("Copying %s to %s...", srcBinary, destBinary)
 		input, err := os.ReadFile(filepath.Clean(srcBinary))
 		if err != nil {
-			return fmt.Errorf("failed to read installed binary %s: %w", srcBinary, err)
+			return nil, fmt.Errorf("failed to read installed binary %s: %w", srcBinary, err)
 		}
 
 		if err := os.WriteFile(destBinary, input, 0600); err != nil {
-			return fmt.Errorf("failed to copy binary to .box/bin: %w", err)
+			return nil, fmt.Errorf("failed to copy binary to .box/bin: %w", err)
 		}
+		relToRoot, _ := filepath.Rel(m.RootDir, destBinary)
+		createdFiles = append(createdFiles, relToRoot)
 	}
-	return nil
+	return createdFiles, nil
 }
 
 func (m *Manager) findBinary(searchDir, name string) (string, error) {
@@ -481,7 +518,7 @@ CMD ["/bin/bash"]
 	return os.WriteFile(dockerfilePath, []byte(content), 0600)
 }
 
-func (m *Manager) installNpm(tool config.Tool, binDir string, _ bool) error {
+func (m *Manager) installNpm(tool config.Tool, binDir string, _ bool) ([]string, error) {
 	source := tool.Source.String()
 	if tool.Version != "" {
 		source = fmt.Sprintf("%s@%s", source, tool.Version)
@@ -494,7 +531,7 @@ func (m *Manager) installNpm(tool config.Tool, binDir string, _ bool) error {
 
 	// npm install --prefix .box/npm -g <package>
 	if err := m.runCommand("npm", []string{"install", "--prefix", npmDir, "-g", source}, nil, "", false); err != nil {
-		return err
+		return nil, err
 	}
 
 	binaries := tool.Binaries
@@ -505,7 +542,7 @@ func (m *Manager) installNpm(tool config.Tool, binDir string, _ bool) error {
 	return m.linkBinaries(npmBinDir, binDir, binaries)
 }
 
-func (m *Manager) installCargo(tool config.Tool, binDir string, _ bool) error {
+func (m *Manager) installCargo(tool config.Tool, binDir string, _ bool) ([]string, error) {
 	source := tool.Source.String()
 	if tool.Version != "" {
 		source = fmt.Sprintf("%s@%s", source, tool.Version)
@@ -522,7 +559,7 @@ func (m *Manager) installCargo(tool config.Tool, binDir string, _ bool) error {
 	args = append(args, source)
 
 	if err := m.runCommand("cargo-binstall", args, nil, "", false); err != nil {
-		return err
+		return nil, err
 	}
 
 	binaries := tool.Binaries
@@ -533,7 +570,7 @@ func (m *Manager) installCargo(tool config.Tool, binDir string, _ bool) error {
 	return m.linkBinaries(cargoBinDir, binDir, binaries)
 }
 
-func (m *Manager) installUv(tool config.Tool, binDir string, _ bool) error {
+func (m *Manager) installUv(tool config.Tool, binDir string, _ bool) ([]string, error) {
 	source := tool.Source.String()
 	if tool.Version != "" {
 		source = fmt.Sprintf("%s==%s", source, tool.Version)
@@ -555,7 +592,7 @@ func (m *Manager) installUv(tool config.Tool, binDir string, _ bool) error {
 	env = append(env, fmt.Sprintf("UV_TOOL_DIR=%s", uvDir))
 
 	if err := m.runCommand("uv", args, env, "", false); err != nil {
-		return err
+		return nil, err
 	}
 
 	binaries := tool.Binaries
@@ -566,7 +603,7 @@ func (m *Manager) installUv(tool config.Tool, binDir string, _ bool) error {
 	return m.linkBinaries(uvBinDir, binDir, binaries)
 }
 
-func (m *Manager) installGem(tool config.Tool, binDir string, _ bool) error {
+func (m *Manager) installGem(tool config.Tool, binDir string, _ bool) ([]string, error) {
 	m.log("Installing %s %s (gem)...", tool.DisplayName(), tool.Version)
 
 	boxDir := filepath.Join(m.RootDir, ".box")
@@ -582,7 +619,7 @@ func (m *Manager) installGem(tool config.Tool, binDir string, _ bool) error {
 	args = append(args, tool.Source.String())
 
 	if err := m.runCommand("gem", args, nil, "", false); err != nil {
-		return err
+		return nil, err
 	}
 
 	binaries := tool.Binaries
@@ -593,7 +630,7 @@ func (m *Manager) installGem(tool config.Tool, binDir string, _ bool) error {
 	return m.linkBinaries(gemBinDir, binDir, binaries)
 }
 
-func (m *Manager) installScript(tool config.Tool, sandbox bool) error {
+func (m *Manager) installScript(tool config.Tool, sandbox bool) ([]string, error) {
 	m.log("Installing via script: %s", tool.DisplayName())
 
 	boxDir := filepath.Join(m.RootDir, ".box")
@@ -618,22 +655,25 @@ func (m *Manager) installScript(tool config.Tool, sandbox bool) error {
 	}
 
 	if err := m.runCommand("sh", []string{"-c", tool.Source.String()}, env, m.RootDir, sandbox); err != nil {
-		return err
+		return nil, err
 	}
 
 	// If explicit binaries are specified for a script, we verify they exist in binDir.
 	// We don't link them because the script is expected to have put them there (e.g. using $BOX_BIN_DIR).
+	createdFiles := []string{}
 	for _, name := range tool.Binaries {
 		binaryPath := filepath.Join(binDir, name)
 		if runtime.GOOS == "windows" && !strings.HasSuffix(binaryPath, ".exe") {
 			binaryPath += ".exe"
 		}
 		if _, err := os.Stat(binaryPath); os.IsNotExist(err) {
-			return fmt.Errorf("script installation finished but binary %s not found in %s", name, binDir)
+			return nil, fmt.Errorf("script installation finished but binary %s not found in %s", name, binDir)
 		}
+		relToRoot, _ := filepath.Rel(m.RootDir, binaryPath)
+		createdFiles = append(createdFiles, relToRoot)
 	}
 
-	return nil
+	return createdFiles, nil
 }
 
 func isDigit(s string) bool {
