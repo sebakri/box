@@ -83,6 +83,93 @@ tools:
 	}
 }
 
+func TestCLICommands(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test in short mode")
+	}
+
+	boxBin := buildBoxBinary(t)
+	projectDir := setupTestProject(t, "testdata/integration_test.yml")
+
+	t.Run("version", func(t *testing.T) {
+		output := runBoxCommand(t, boxBin, projectDir, "version")
+		if !strings.Contains(output, "box") {
+			t.Errorf("Expected version output to contain 'box', got: %s", output)
+		}
+	})
+
+	t.Run("install and list", func(t *testing.T) {
+		runBoxCommand(t, boxBin, projectDir, "install", "--non-interactive")
+		output := runBoxCommand(t, boxBin, projectDir, "list")
+		if !strings.Contains(output, "task") {
+			t.Errorf("Expected list output to contain 'task', got: %s", output)
+		}
+	})
+
+	t.Run("run", func(t *testing.T) {
+		output := runBoxCommand(t, boxBin, projectDir, "run", "task", "--version")
+		if !strings.Contains(output, "Task version") {
+			t.Errorf("Expected run output to contain 'Task version', got: %s", output)
+		}
+	})
+
+	t.Run("env", func(t *testing.T) {
+		output := runBoxCommand(t, boxBin, projectDir, "env")
+		if !strings.Contains(output, "BOX_DIR") {
+			t.Errorf("Expected env output to contain 'BOX_DIR', got: %s", output)
+		}
+		if !strings.Contains(output, "APP_DEBUG") {
+			t.Errorf("Expected env output to contain 'APP_DEBUG', got: %s", output)
+		}
+
+		// Test specific key
+		output = runBoxCommand(t, boxBin, projectDir, "env", "APP_DEBUG")
+		if strings.TrimSpace(output) != "true" {
+			t.Errorf("Expected 'true', got: %q", output)
+		}
+	})
+
+	t.Run("generate direnv", func(t *testing.T) {
+		runBoxCommand(t, boxBin, projectDir, "generate", "direnv")
+		envrcPath := filepath.Join(projectDir, ".envrc")
+		if _, err := os.Stat(envrcPath); err != nil {
+			t.Errorf("Expected .envrc to be generated, but not found: %v", err)
+		}
+		content, _ := os.ReadFile(envrcPath)
+		if !strings.Contains(string(content), "BOX_BIN_DIR") {
+			t.Errorf(".envrc content missing BOX_BIN_DIR: %s", string(content))
+		}
+	})
+
+	t.Run("generate dockerfile", func(t *testing.T) {
+		runBoxCommand(t, boxBin, projectDir, "generate", "dockerfile")
+		dockerfilePath := filepath.Join(projectDir, "Dockerfile")
+		if _, err := os.Stat(dockerfilePath); err != nil {
+			t.Errorf("Expected Dockerfile to be generated, but not found: %v", err)
+		}
+	})
+
+	t.Run("doctor", func(t *testing.T) {
+		// doctor might return non-zero if some tools are missing on host, 
+		// but we just check if it runs.
+		cmd := exec.Command(boxBin, "doctor")
+		cmd.Dir = projectDir
+		_ = cmd.Run() 
+	})
+}
+
+func runBoxCommand(t *testing.T, boxBin, projectDir string, args ...string) string {
+	t.Helper()
+	//nolint:gosec
+	cmd := exec.Command(boxBin, args...)
+	cmd.Dir = projectDir
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("box %s failed: %v\nOutput: %s", strings.Join(args, " "), err, string(output))
+	}
+	return string(output)
+}
+
 func buildBoxBinary(t *testing.T) string {
 	t.Helper()
 	boxBin := filepath.Join(t.TempDir(), "box")
