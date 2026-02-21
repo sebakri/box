@@ -61,9 +61,9 @@ tasks:
       - |
         if [ "{{.FINAL_TAG}}" == "$(svu current)" ]; then
           echo "No version bump required"
-          exit 0
+          exit 1
         fi
-        task: tag:internal
+      - task: tag:internal
         vars: { TAG: "{{.FINAL_TAG}}" }
       - git push origin main --tags
 
