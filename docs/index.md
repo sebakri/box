@@ -10,6 +10,15 @@ hide:
 
 Box is a minimalist, project-local toolbox that keeps your development tools, binaries, and environment variables neatly packed and isolated within your project. It allows you to define and install project-specific tools locally without requiring root permissions, keeping your global environment clean and your development setup reproducible.
 
+## Why use Box?
+
+In an ecosystem with many tool managers, Box stands out for its "glue" philosophy:
+
+- **Minimalist & Agnostic**: Box is a thin wrapper. It doesn't require a central registry or custom plugins for every tool. If you know how to install it via a standard package manager (Go, Cargo, npm, uv, Gem), Box can automate it.
+- **Portable "Toolbox"**: By keeping everything in `.box/`, your project becomes a self-contained unit. You can move the project folder, and your tools move with it.
+- **Scriptable**: The `script` installer type allows you to handle edge cases and proprietary tools using standard shell commands, while still benefiting from Box's environment management.
+- **CI/CD Ready**: Since it's a single binary and uses standard installers, it's trivial to use in GitHub Actions or any other CI provider to ensure your build environment matches your local one.
+
 ## Key Features
 
 - **Project-Local Tools**: Tools are installed in `.box/bin`, isolated from your system.

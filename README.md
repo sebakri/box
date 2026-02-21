@@ -5,6 +5,15 @@
 
 Box is a minimalist, project-local toolbox that keeps your development tools, binaries, and environment variables neatly packed and isolated within your project. It ensures a reproducible environment without cluttering your global system.
 
+## Why use Box?
+
+While there are many tool managers (like `asdf`, `mise`, or `aqua`), Box is designed for simplicity and project-level isolation:
+
+- **No Magic/No Registry**: Box doesn't need a central database of "supported" tools. If it can be installed via `go install`, `npm`, `cargo`, `uv`, or a shell script, Box can manage it.
+- **True Project Isolation**: Everything—binaries, caches, and metadata—lives inside your project's `.box` folder. Deleting the folder completely removes the tools.
+- **Zero Dependencies**: Box is a single Go binary. You don't need Nix, a plugin system, or a complex runtime to get started.
+- **Transparent Wrapper**: It doesn't replace your package managers; it coordinates them to keep your workspace clean.
+
 ## Documentation
 
 Full documentation is available at [https://sebakri.github.io/box/](https://sebakri.github.io/box/)
@@ -39,6 +48,7 @@ Full documentation is available at [https://sebakri.github.io/box/](https://seba
 ## Installation
 
 Install using curl:
+
 ```bash
 curl -fsSL https://raw.githubusercontent.com/sebakri/box/main/scripts/install.sh | sh
 ```
@@ -57,11 +67,13 @@ Or download the binary for your platform from the [latest releases](https://gith
 ## Development
 
 Build with Task:
+
 ```bash
 task build
 ```
 
 Run tests:
+
 ```bash
 task test
 ```
