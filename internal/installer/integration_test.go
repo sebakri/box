@@ -16,13 +16,58 @@ func TestIntegrationInstallation(t *testing.T) {
 	}
 
 	boxBin := buildBoxBinary(t)
-	projectDir := setupTestProject(t)
+	projectDir := setupTestProject(t, "testdata/integration_test.yml")
 
 	// Use a dedicated GOPATH for the test to avoid caching issues
 	t.Setenv("GOPATH", filepath.Join(t.TempDir(), "gopath"))
 
 	runBoxInstall(t, boxBin, projectDir)
 	verifyInstallation(t, projectDir)
+}
+
+func TestSandboxIsolation(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test in short mode")
+	}
+
+	boxBin := buildBoxBinary(t)
+
+	// Create a temp parent directory to contain our project and witness file
+	tempParent := t.TempDir()
+	projectDir := filepath.Join(tempParent, "project")
+	if err := os.MkdirAll(projectDir, 0700); err != nil {
+		t.Fatalf("Failed to create project dir: %v", err)
+	}
+
+	// File outside project directory that we will try to create/modify
+	witnessFile := filepath.Join(tempParent, "sandbox_witness.txt")
+
+	// Create a box.yml that attempts to write outside the project directory
+	boxYAML := `
+sandbox: true
+tools:
+  - type: script
+    alias: sandbox-escape-attempt
+    source:
+      - touch ../sandbox_witness.txt
+`
+	if err := os.WriteFile(filepath.Join(projectDir, "box.yml"), []byte(boxYAML), 0600); err != nil {
+		t.Fatalf("Failed to write box.yml: %v", err)
+	}
+
+	// Run box install - it should FAIL
+	//nolint:gosec
+	installCmd := exec.Command(filepath.Clean(boxBin), "install", "--non-interactive")
+	installCmd.Dir = projectDir
+	output, err := installCmd.CombinedOutput()
+	if err == nil {
+		t.Fatalf("Expected box install to fail due to sandbox violation, but it succeeded.\nOutput: %s", string(output))
+	}
+
+	// Verify the witness file was NOT created
+	if _, err := os.Stat(witnessFile); err == nil {
+		t.Errorf("Security Breach: Witness file %s was created despite sandbox!", witnessFile)
+	}
 }
 
 func buildBoxBinary(t *testing.T) string {
@@ -36,7 +81,7 @@ func buildBoxBinary(t *testing.T) string {
 	return boxBin
 }
 
-func setupTestProject(t *testing.T) string {
+func setupTestProject(t *testing.T, configFile string) string {
 	t.Helper()
 	projectDir := t.TempDir()
 
@@ -50,7 +95,7 @@ func setupTestProject(t *testing.T) string {
 		})
 	})
 
-	configSource, err := os.ReadFile("testdata/integration_test.yml")
+	configSource, err := os.ReadFile(configFile)
 	if err != nil {
 		t.Fatalf("Failed to read integration test config: %v", err)
 	}
