@@ -52,26 +52,18 @@ tasks:
           echo "Created tag {{.TAG}}"
         fi
 
-  release:auto:
-    desc: "Create a release automatically using svu"
+  release:
+    desc: "Create a release. Defaults to svu versioning if TAG is not provided (usage: task release [TAG=v1.2.3])"
     vars:
-      NEXT_TAG:
-        sh: svu next
+      FINAL_TAG: '{{default (sh "svu next") .TAG}}'
     cmds:
       - |
-        if [ "{{.NEXT_TAG}}" == "$(svu current)" ]; then
+        if [ "{{.FINAL_TAG}}" == "$(svu current)" ]; then
           echo "No version bump required"
           exit 0
         fi
         task: tag:internal
-        vars: { TAG: "{{.NEXT_TAG}}" }
-      - git push origin main --tags
-
-  release:
-    desc: "Create a release manually (usage: task release TAG=v1.2.3)"
-    cmds:
-      - task: tag:internal
-        vars: { TAG: "{{.TAG}}" }
+        vars: { TAG: "{{.FINAL_TAG}}" }
       - git push origin main --tags
 
   changelog:
