@@ -31,17 +31,12 @@ tasks:
         printf "%-40s | %-10s\n" "Package" "Coverage"
         echo "-----------------------------------------|-----------"
         
-        # Define packages to check
-        PKGS=". cmd internal/config internal/doctor internal/installer internal/sandbox tests/integration"
+        # Define packages to check (excluding root and tests/integration)
+        PKGS="cmd internal/config internal/doctor internal/installer internal/sandbox"
         
         for p in $PKGS; do
-          if [ "$p" == "." ]; then
-            # Root package files
-            COV=$(go tool cover -func=coverage.out | grep "^github.com/sebakri/box/[^/]*\.go" | awk '{print $3}' | sed 's/%//' | awk '{s+=$1; n++} END {if (n>0) printf "%.1f%%", s/n; else print "0.0%"}')
-          else
-            # Subpackage files
-            COV=$(go tool cover -func=coverage.out | grep "^github.com/sebakri/box/$p/" | awk '{print $3}' | sed 's/%//' | awk '{s+=$1; n++} END {if (n>0) printf "%.1f%%", s/n; else print "0.0%"}')
-          fi
+          # Subpackage files
+          COV=$(go tool cover -func=coverage.out | grep "^github.com/sebakri/box/$p/" | awk '{print $3}' | sed 's/%//' | awk '{s+=$1; n++} END {if (n>0) printf "%.1f%%", s/n; else print "0.0%"}')
           printf "%-40s | %-10s\n" "$p" "$COV"
         done
         
