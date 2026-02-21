@@ -25,13 +25,13 @@ tasks:
     desc: Show test coverage summary
     cmds:
       - |
-        go test -tags=integration -coverpkg=./... -coverprofile=coverage.out ./... ./tests/integration > /dev/null
+        go test -tags=integration -coverpkg=./cmd/...,./internal/... -coverprofile=coverage.out ./... ./tests/integration > /dev/null
         echo "Test Coverage Report"
         echo "===================="
         printf "%-40s | %-10s\n" "Package" "Coverage"
         echo "-----------------------------------------|-----------"
         
-        # Define packages to check (excluding root and tests/integration)
+        # Define packages to check
         PKGS="cmd internal/config internal/doctor internal/installer internal/sandbox"
         
         for p in $PKGS; do
