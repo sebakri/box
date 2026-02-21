@@ -48,7 +48,8 @@ type NpmInstaller struct{}
 // Install installs an NPM package.
 func (i *NpmInstaller) Install(tool config.Tool, m *Manager) error {
 	boxDir := filepath.Join(m.RootDir, ".box")
-	return m.installNpm(tool, boxDir)
+	binDir := filepath.Join(boxDir, "bin")
+	return m.installNpm(tool, binDir)
 }
 
 // CargoInstaller implements the Installer interface for Cargo crates.
@@ -57,7 +58,8 @@ type CargoInstaller struct{}
 // Install installs a Cargo crate using 'cargo-binstall'.
 func (i *CargoInstaller) Install(tool config.Tool, m *Manager) error {
 	boxDir := filepath.Join(m.RootDir, ".box")
-	return m.installCargo(tool, boxDir)
+	binDir := filepath.Join(boxDir, "bin")
+	return m.installCargo(tool, binDir)
 }
 
 // UvInstaller implements the Installer interface for Python tools via uv.

@@ -308,9 +308,12 @@ func (m *Manager) prepareGoEnv(goDir string) []string {
 }
 
 func (m *Manager) detectBinaryName(source string) string {
-	// The binary name is the last part of the source path (before @)
+	// The binary name is the last part of the source path (before @ or ==)
 	sourcePath := source
 	if idx := strings.Index(sourcePath, "@"); idx != -1 {
+		sourcePath = sourcePath[:idx]
+	}
+	if idx := strings.Index(sourcePath, "=="); idx != -1 {
 		sourcePath = sourcePath[:idx]
 	}
 
@@ -481,30 +484,56 @@ CMD ["/bin/bash"]
 	return os.WriteFile(dockerfilePath, []byte(content), 0600)
 }
 
-func (m *Manager) installNpm(tool config.Tool, etcDir string) error {
+func (m *Manager) installNpm(tool config.Tool, binDir string) error {
 	source := tool.Source.String()
 	if tool.Version != "" {
 		source = fmt.Sprintf("%s@%s", source, tool.Version)
 	}
 	m.log("Installing %s (npm)...", tool.DisplayName())
 
-	// npm install --prefix .etc -g <package>
-	return m.runCommand("npm", []string{"install", "--prefix", etcDir, "-g", source}, nil, "")
+	boxDir := filepath.Join(m.RootDir, ".box")
+	npmDir := filepath.Join(boxDir, "npm")
+	npmBinDir := filepath.Join(npmDir, "bin")
+
+	// npm install --prefix .box/npm -g <package>
+	if err := m.runCommand("npm", []string{"install", "--prefix", npmDir, "-g", source}, nil, ""); err != nil {
+		return err
+	}
+
+	binaries := tool.Binaries
+	if len(binaries) == 0 {
+		binaries = []string{m.detectBinaryName(source)}
+	}
+
+	return m.linkBinaries(npmBinDir, binDir, binaries)
 }
 
-func (m *Manager) installCargo(tool config.Tool, etcDir string) error {
+func (m *Manager) installCargo(tool config.Tool, binDir string) error {
 	source := tool.Source.String()
 	if tool.Version != "" {
 		source = fmt.Sprintf("%s@%s", source, tool.Version)
 	}
 	m.log("Installing %s (cargo)...", tool.DisplayName())
 
-	// cargo-binstall --root .etc <args> <package>
-	args := []string{"--root", etcDir, "-y"}
+	boxDir := filepath.Join(m.RootDir, ".box")
+	cargoDir := filepath.Join(boxDir, "cargo")
+	cargoBinDir := filepath.Join(cargoDir, "bin")
+
+	// cargo-binstall --root .box/cargo <args> <package>
+	args := []string{"--root", cargoDir, "-y"}
 	args = append(args, tool.Args...)
 	args = append(args, source)
 
-	return m.runCommand("cargo-binstall", args, nil, "")
+	if err := m.runCommand("cargo-binstall", args, nil, ""); err != nil {
+		return err
+	}
+
+	binaries := tool.Binaries
+	if len(binaries) == 0 {
+		binaries = []string{m.detectBinaryName(source)}
+	}
+
+	return m.linkBinaries(cargoBinDir, binDir, binaries)
 }
 
 func (m *Manager) installUv(tool config.Tool, binDir string) error {
@@ -516,6 +545,7 @@ func (m *Manager) installUv(tool config.Tool, binDir string) error {
 
 	boxDir := filepath.Join(m.RootDir, ".box")
 	uvDir := filepath.Join(boxDir, "uv")
+	uvBinDir := filepath.Join(uvDir, "bin")
 
 	// uv tool install --force <package>
 	// UV_TOOL_BIN_DIR and UV_TOOL_DIR ensure project-local installation
@@ -524,10 +554,19 @@ func (m *Manager) installUv(tool config.Tool, binDir string) error {
 	args = append(args, source)
 
 	env := os.Environ()
-	env = append(env, fmt.Sprintf("UV_TOOL_BIN_DIR=%s", binDir))
+	env = append(env, fmt.Sprintf("UV_TOOL_BIN_DIR=%s", uvBinDir))
 	env = append(env, fmt.Sprintf("UV_TOOL_DIR=%s", uvDir))
 
-	return m.runCommand("uv", args, env, "")
+	if err := m.runCommand("uv", args, env, ""); err != nil {
+		return err
+	}
+
+	binaries := tool.Binaries
+	if len(binaries) == 0 {
+		binaries = []string{m.detectBinaryName(source)}
+	}
+
+	return m.linkBinaries(uvBinDir, binDir, binaries)
 }
 
 func (m *Manager) installGem(tool config.Tool, binDir string) error {
@@ -535,16 +574,26 @@ func (m *Manager) installGem(tool config.Tool, binDir string) error {
 
 	boxDir := filepath.Join(m.RootDir, ".box")
 	gemDir := filepath.Join(boxDir, "gems")
+	gemBinDir := filepath.Join(gemDir, "bin")
 
-	// gem install --install-dir .box/gems --bindir .box/bin <gem>
-	args := []string{"install", "--install-dir", gemDir, "--bindir", binDir, "--no-document"}
+	// gem install --install-dir .box/gems --bindir .box/gems/bin <gem>
+	args := []string{"install", "--install-dir", gemDir, "--bindir", gemBinDir, "--no-document"}
 	if tool.Version != "" {
 		args = append(args, "-v", tool.Version)
 	}
 	args = append(args, tool.Args...)
 	args = append(args, tool.Source.String())
 
-	return m.runCommand("gem", args, nil, "")
+	if err := m.runCommand("gem", args, nil, ""); err != nil {
+		return err
+	}
+
+	binaries := tool.Binaries
+	if len(binaries) == 0 {
+		binaries = []string{m.detectBinaryName(tool.Source.String())}
+	}
+
+	return m.linkBinaries(gemBinDir, binDir, binaries)
 }
 
 func (m *Manager) installScript(tool config.Tool) error {
@@ -565,7 +614,23 @@ func (m *Manager) installScript(tool config.Tool) error {
 		env = append(env, fmt.Sprintf("%s=%s", k, v))
 	}
 
-	return m.runCommand("sh", []string{"-c", tool.Source.String()}, env, m.RootDir)
+	if err := m.runCommand("sh", []string{"-c", tool.Source.String()}, env, m.RootDir); err != nil {
+		return err
+	}
+
+	// If explicit binaries are specified for a script, we verify they exist in binDir.
+	// We don't link them because the script is expected to have put them there (e.g. using $BOX_BIN_DIR).
+	for _, name := range tool.Binaries {
+		binaryPath := filepath.Join(binDir, name)
+		if runtime.GOOS == "windows" && !strings.HasSuffix(binaryPath, ".exe") {
+			binaryPath += ".exe"
+		}
+		if _, err := os.Stat(binaryPath); os.IsNotExist(err) {
+			return fmt.Errorf("script installation finished but binary %s not found in %s", name, binDir)
+		}
+	}
+
+	return nil
 }
 
 func isDigit(s string) bool {
